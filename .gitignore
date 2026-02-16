@@ -1,41 +1,24 @@
-# Prerequisites
-*.d
+# Compilacion
+build/
+bin/
+obj/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
+# Ejecutables y librerias (Windows)
+*.exe
+*.dll
+*.lib
 *.pdb
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# IDEs
+.vscode/
+.vs/
+*.user
+*.sln
+*.vcxproj
 
-# Fortran module files
-*.mod
-*.smod
+# Modelos de IA (Pesados)
+models/
+*.bin
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# debug information files
-*.dwo
+# Archivos de prueba
+*.wav

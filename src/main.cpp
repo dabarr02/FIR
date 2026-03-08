@@ -1,61 +1,56 @@
 #include <iostream>
-#include <fstream>
 #include <thread>
 #include <chrono>
 #include <vector>
 #include "AudioEngine.hpp"
-#include "WavHeader.hpp"
-
-// La función de guardado se mantiene igual
-void saveWav(const std::string& filename, const std::vector<float>& data) {
-    std::ofstream file(filename, std::ios::binary);
-    WavHeader header;
-    header.subchunk2Size = static_cast<uint32_t>(data.size() * sizeof(float));
-    header.chunkSize = 36 + header.subchunk2Size;
-
-    file.write(reinterpret_cast<const char*>(&header), sizeof(WavHeader));
-    file.write(reinterpret_cast<const char*>(data.data()), header.subchunk2Size);
-}
+#include "Transcriber.hpp"
 
 int main() {
-    AudioEngine engine; // El constructor reserva la memoria (Pre-allocation)
-    std::vector<float> grabaciónCompleta;
-    
-    // Mostramos info de dispositivos (opcional, para depurar)
-    Pa_Initialize(); // Necesario para consultar dispositivos antes de start()
-    int defaultInput = Pa_GetDefaultInputDevice();
-    if (defaultInput != paNoDevice) {
-        std::cout << ">>> Capturando desde: " << Pa_GetDeviceInfo(defaultInput)->name << std::endl;
-    }
+    Transcriber transcriber;
+    AudioEngine engine;
+    int tiempoTotalPrueba = 30; // Segundos que durará la prueba
+    int intervaloCaptura = 3;   // Procesamos de 3 en 3 segundos
 
-    std::cout << "Grabando con Buffer Circular (Real-Time Safe)..." << std::endl;
+    std::cout << "--- RadioAccess TFG: Prueba Temporizada (" << tiempoTotalPrueba << "s) ---" << std::endl;
 
-    if (engine.start()) {
-        // Grabamos durante 5 segundos, pero extrayendo datos segundo a segundo
-        for (int i = 0; i < 5; ++i) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            
-            // Background: Consumimos lo que el Foreground ha escrito en el Ring Buffer
-            std::vector<float> nuevasMuestras = engine.getAvailableSamples();
-            
-            // Las acumulamos en nuestro vector para el archivo final
-            grabaciónCompleta.insert(grabaciónCompleta.end(), nuevasMuestras.begin(), nuevasMuestras.end());
-            
-            std::cout << "Segundo " << i + 1 << ": capturadas " << nuevasMuestras.size() << " muestras nuevas." << std::endl;
-        }
+    if (!transcriber.init("models/ggml-base.bin")) return 1;
+    if (!engine.start()) return 1;
 
-        engine.stop();
+    // Calculamos cuántas veces debe ejecutarse el bucle
+    int iteraciones = tiempoTotalPrueba / intervaloCaptura;
+
+    for (int i = 0; i < iteraciones; ++i) {
+        std::cout << "\n[Ciclo " << i + 1 << "/" << iteraciones << "] Capturando audio..." << std::endl;
         
-        // Guardamos el resultado acumulado
-        if (!grabaciónCompleta.empty()) {
-            saveWav("prueba_circular.wav", grabaciónCompleta);
-            std::cout << "¡Hecho! Archivo 'prueba_circular.wav' generado con " << grabaciónCompleta.size() << " muestras." << std::endl;
-        } else {
-            std::cout << "No se capturaron muestras. Revisa la configuración del micro/cable virtual." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(intervaloCaptura));
+
+        // Obtenemos solo lo último capturado
+        std::vector<float> pcmData = engine.getAvailableSamples();
+        
+        if (!pcmData.empty()) {
+            // --- TRUCO TFG: Si hay demasiado audio acumulado, solo nos quedamos con los últimos 3 segundos ---
+            // Esto evita el efecto "bola de nieve" si la IA es lenta.
+            size_t maxSamples = 16000 * intervaloCaptura;
+            if (pcmData.size() > maxSamples) {
+                pcmData.erase(pcmData.begin(), pcmData.end() - maxSamples);
+            }
+
+            std::cout << " > Procesando " << pcmData.size() << " muestras..." << std::flush;
+            
+            auto start = std::chrono::high_resolution_clock::now();
+            std::string texto = transcriber.transcribe(pcmData);
+            auto end = std::chrono::high_resolution_clock::now();
+            
+            std::chrono::duration<double> diff = end - start;
+            std::cout << " (Inferencia: " << diff.count() << "s)" << std::endl;
+            std::cout << " [IA]: " << (texto.empty() ? "..." : texto) << std::endl;
         }
-    } else {
-        std::cerr << "Error al iniciar el motor de audio" << std::endl;
     }
 
+    std::cout << "\n--- Finalizando programa y liberando recursos ---" << std::endl;
+    engine.stop();
+    // PortAudio y Whisper se cierran automáticamente por los destructores
+    
+    std::cout << "Programa terminado correctamente." << std::endl;
     return 0;
 }

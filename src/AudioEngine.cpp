@@ -52,6 +52,50 @@ std::vector<float> AudioEngine::getAvailableSamples() {
     return samples;
 }
 
+size_t AudioEngine::getQueuedSamplesCount() {
+    size_t w = writeIdx.load(std::memory_order_acquire);
+    size_t r = readIdx.load(std::memory_order_relaxed);
+
+    if (w >= r) {
+        return w - r;
+    }
+    else {
+        // Caso en el que el índice de escritura ha dado la vuelta al círculo
+        return capacity - (r - w);
+    }
+}
+
+std::vector<float> AudioEngine::getSamples(size_t count) {
+    size_t currentWrite = writeIdx.load(std::memory_order_acquire);
+    size_t currentRead = readIdx.load(std::memory_order_relaxed);
+
+    std::vector<float> samples;
+    samples.reserve(count);
+
+    // Solo extraemos si realmente tenemos esa cantidad
+    for (size_t i = 0; i < count; i++) {
+        if (currentRead == currentWrite) break; // No debería pasar si chequeamos antes
+        samples.push_back(ringBuffer[currentRead]);
+        currentRead = (currentRead + 1) % capacity;
+    }
+
+    readIdx.store(currentRead, std::memory_order_release);
+    return samples;
+}
+
+// Salta audio antiguo para volver al tiempo real
+void AudioEngine::discardOldAudio(size_t keepLastSamples) {
+    size_t currentWrite = writeIdx.load(std::memory_order_acquire);
+
+    // Ponemos el índice de lectura justo 'keepLastSamples' por detrás del de escritura
+    if (currentWrite >= keepLastSamples) {
+        readIdx.store(currentWrite - keepLastSamples, std::memory_order_release);
+    }
+    else {
+        readIdx.store(capacity - (keepLastSamples - currentWrite), std::memory_order_release);
+    }
+}
+
 bool AudioEngine::start() {
     PaError err = Pa_OpenDefaultStream(&stream, 1, 0, paFloat32, 16000, 512, paCallback, this);
     if (err != paNoError) return false;

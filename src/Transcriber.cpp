@@ -15,7 +15,7 @@ std::string Transcriber::transcribe(const std::vector<float>& pcmData) {
     params.language = "en";
     params.n_threads = 8;
     params.translate = false;
-    params.initial_prompt = "Amateur radio callsigns: Alpha, Bravo, Charlie, Delta, Echo, Foxtrot, Golf, Hotel, India, Juliett, Kilo, Lima, Mike, November, Oscar, Papa, Quebec, Romeo, Sierra, Tango, Uniform, Victor, Whiskey, X-ray, Yankee, Zulu.";
+    params.initial_prompt = "Amateur radio callsigns: Alfa, Bravo, Charlie, Delta, Echo, Foxtrot, Golf, Hotel, India, Juliett, Kilo, Lima, Mike, November, Oscar, Papa, Quebec, Romeo, Sierra, Tango, Uniform, Victor, Whiskey, X-Ray, Yankee, Zulu";
 
     if (whisper_full(ctx, params, pcmData.data(), pcmData.size()) != 0) return "Error";
 

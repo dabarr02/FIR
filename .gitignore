@@ -2,6 +2,7 @@
 build/
 bin/
 obj/
+build_backup/
 
 # Ejecutables y librerias (Windows)
 *.exe

@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
+
+set(CMAKE_TOOLCHAIN_FILE "C:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake")
 project(RadioAccessTFG C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
+
+# --- BUSCAR LIBRERÍAS DE VCPKG ---
+find_package(CURL REQUIRED)
+find_package(pugixml CONFIG REQUIRED)
 
 # 1. DEFINICIONES GLOBALES (Extraídas del archivo original)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -13,7 +19,7 @@ add_definitions(-DGGML_USE_CPU)
 
 if(WIN32)
     add_definitions(-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # Vital para MSVC 
-    add_definitions(-DGGML_BACKEND_DL_WINDOWS) # [cite: 31]
+    add_definitions(-DGGML_BACKEND_DL_WINDOWS)
 endif()
 
 # 2. DIRECTORIOS DE INCLUSIÓN
@@ -32,15 +38,15 @@ add_library(ggml_core STATIC
     third_party/whisper/ggml-quants.c
     third_party/whisper/gguf.cpp
     third_party/whisper/ggml-threading.cpp
-)
+ )
 
-# 4. LIBRERÍA GGML_CPU (La que te daba los 39 errores)
+# 4. LIBRERÍA GGML_CPU 
 # El archivo original separa estas optimizaciones 
 add_library(ggml_cpu_x86 OBJECT
     third_party/whisper/ggml-cpu/arch/x86/cpu-feats.cpp
     third_party/whisper/ggml-cpu/arch/x86/quants.c
     third_party/whisper/ggml-cpu/arch/x86/repack.cpp
-)
+ )
 
 add_library(ggml_cpu STATIC
     third_party/whisper/ggml-cpu/ggml-cpu.c
@@ -54,23 +60,31 @@ add_library(ggml_cpu STATIC
     third_party/whisper/ggml-cpu/ops.cpp
     third_party/whisper/ggml-cpu/hbm.cpp
     $<TARGET_OBJECTS:ggml_cpu_x86>
-)
+ )
 
-add_library(whisper STATIC third_party/whisper/whisper.cpp)
+add_library(whisper STATIC third_party/whisper/whisper.cpp )
 
 # 5. EJECUTABLE FINAL
 add_executable(RadioAccessTFG 
-    src/main.cpp 
+    src/main.cpp
+    src/CallsignParser.cpp
     src/AudioEngine.cpp 
     src/Transcriber.cpp
+    src/QRZClient.cpp
     third_party/whisper/whisper.cpp # Whisper depende de las dos de arriba
-)
+    include/AudioEngine.hpp
+    include/Transcriber.hpp
+    include/CallsignParser.hpp
+    include/QRZClient.hpp
+ )
 
 # 6. ENLACE DE PIEZAS
 target_link_libraries(RadioAccessTFG PRIVATE 
     whisper
     ggml_cpu 
     ggml_core
+    CURL::libcurl        
+    pugixml::pugixml
     "${CMAKE_SOURCE_DIR}/third_party/portaudio/lib/portaudio_x64.lib"
 )
 

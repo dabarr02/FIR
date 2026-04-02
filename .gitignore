@@ -23,3 +23,5 @@ models/
 
 # Archivos de prueba
 *.wav
+
+.env

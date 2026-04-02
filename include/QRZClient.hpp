@@ -1,25 +1,21 @@
-
 #include <string>
-#include <vector>
 
-// Estructura para guardar lo que nos diga QRZ
 struct OperatorData {
     std::string callsign;
     std::string name;
     std::string country;
     std::string city;
-    std::string image_url;
     bool found = false;
 };
 
 class QRZClient {
 public:
-    QRZClient(std::string user, std::string pass);
+    QRZClient(const std::string& user, const std::string& pass);
 
-    // Hace el login y guarda la sessionKey
-    bool authenticate();
+    // Paso 1: Autenticarse y obtener la Session Key
+    bool login();
 
-    // Busca un indicativo y devuelve los datos
+    // Paso 2: Consultar un indicativo
     OperatorData lookup(const std::string& callsign);
 
 private:
@@ -27,6 +23,6 @@ private:
     std::string password;
     std::string sessionKey;
 
-    // Función interna para hacer la petición HTTP (usará libcurl)
-    std::string makeRequest(const std::string& url);
+    // Función auxiliar para hacer las peticiones HTTP
+    std::string httpRequest(const std::string& url);
 };

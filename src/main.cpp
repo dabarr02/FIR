@@ -1,3 +1,6 @@
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <Windows.h>
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -7,10 +10,16 @@
 #include <sstream>
 #include <regex>
 #include <algorithm>
-#include <Windows.h>
 #include <cctype>
 #include <map>
 #include <set>
+#include <mutex>
+
+#pragma warning(push, 0) 
+#include "httplib.h"
+#include <nlohmann/json.hpp>
+#pragma warning(pop)
+
 
 #include "AudioEngine.hpp"
 #include "Transcriber.hpp"
@@ -21,6 +30,16 @@
 const size_t BLOQUE_3S = 16000 * 4;
 const size_t UMBRAL_LATENCIA = 16000 * 10;
 const int MAX_CONTEXTO = 500;
+
+
+// Estructura para compartir datos entre la Radio y la Web
+struct RadioState {
+    std::string lastTranscription;
+    std::vector<nlohmann::json> validatedContacts;
+    std::mutex mtx; 
+};
+
+RadioState globalState;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -60,23 +79,39 @@ std::string getTimestamp() {
     return ss.str();
 }
 
-// ============================================================================
-// MAIN
-// ============================================================================
+int qrz_test(QRZClient& qrz) {
+    std::cout << "[*] Conectando a QRZ XML Service..." << std::endl;
+    if (!qrz.login()) {
+        std::cerr << "[!] Error de Login en QRZ. Revisa tu .env y conexión." << std::endl;
+        return 1;
+    }
 
-int main() {
-    SetConsoleOutputCP(CP_UTF8);
-    
-    // Initialize components
-    Transcriber transcriber;
-    AudioEngine engine;
-    CallsignParser parser;
-    std::ofstream logFile("registro_radio.txt", std::ios::app);
+    std::cout << "[+] Login exitoso. Session Key obtenida." << std::endl;
+    std::cout << "[*] Verificando base de datos (Test: EA4IAX)..." << std::endl;
 
-    if (!transcriber.init("models/ggml-small.bin")) return 1;
-    if (!engine.start()) return 1;
+    OperatorData testOp = qrz.lookup("EA4IAX");
+    if (testOp.found) {
+        std::cout << "\n>>> TEST EXITOSO <<<" << std::endl;
+        std::cout << "Nombre:   " << testOp.name << std::endl;
+        std::cout << "País:     " << testOp.country << std::endl;
+        std::cout << "Ciudad:   " << testOp.city << "\n" << std::endl;
+    }
+    else {
+      
+		return 1;
+    }
+	return 0;
+}
 
-    // Load environment variables
+int system_init(Transcriber& trans,AudioEngine& audio, QRZClient& qrz ) {
+
+    //=======================INIT audio y transcriptor===============
+
+    if (!trans.init("models/ggml-small.bin")) return 1;
+    if (!audio.start()) return 1;
+	
+
+    //============ Load environment variables=======================
     loadEnv(".env");
 
     char* user_ptr = nullptr;
@@ -97,43 +132,106 @@ int main() {
     free(user_ptr);
     free(pass_ptr);
 
-    QRZClient qrz(qrz_user, qrz_pass);
-
-    // QRZ Login test
-    std::cout << "[*] Conectando a QRZ XML Service..." << std::endl;
-    if (!qrz.login()) {
-        std::cerr << "[!] Error de Login en QRZ. Revisa tu .env y conexión." << std::endl;
+	//=======================INIT QRZ=======================
+    qrz.init(qrz_user, qrz_pass);
+	if(qrz_test(qrz)){
+		std::cerr << "[!] Error en la conexión o consulta a QRZ. Verifica tus credenciales y conexión." << std::endl;
         return 1;
     }
+	return 0;
 
-    std::cout << "[+] Login exitoso. Session Key obtenida." << std::endl;
-    std::cout << "[*] Verificando base de datos (Test: EA4IAX)..." << std::endl;
 
-    OperatorData testOp = qrz.lookup("EA4IAX");
-    if (testOp.found) {
-        std::cout << "\n>>> TEST EXITOSO <<<" << std::endl;
-        std::cout << "Nombre:   " << testOp.name << std::endl;
-        std::cout << "País:     " << testOp.country << std::endl;
-        std::cout << "Ciudad:   " << testOp.city << "\n" << std::endl;
-    } else {
-        std::cout << "\n[!] El test ha fallado. Revisa el DEBUG XML de arriba.\n" << std::endl;
-    }
+}
+
+void web_init() {
+    
+    // Usamos un puntero estático o capturamos por referencia en un hilo
+    std::thread serverThread([]() {
+    httplib::Server svr;
+
+    // Ruta para enviar datos a la Web (RX)
+    svr.Get("/api/status", [](const httplib::Request&, httplib::Response& res) {
+        std::string body;
+        try {
+            {
+                std::lock_guard<std::mutex> lock(globalState.mtx);
+                nlohmann::json j;
+                j["transcription"] = globalState.lastTranscription;
+                j["contacts"] = globalState.validatedContacts;
+
+                // Convertimos a string mientras aún tenemos el lock para asegurar consistencia
+                body = j.dump();
+            }
+            //  El Mutex se libera AQUÍ automáticamente al cerrar la llave
+
+            //Configuramos la respuesta fuera del bloqueo
+            res.status = 200;
+            res.set_content(body, "application/json");
+            res.set_header("Access-Control-Allow-Origin", "*");
+
+        }
+        catch (const std::exception& e) {
+            std::cerr << "[WEB ERROR] Error generando JSON: " << e.what() << std::endl;
+            res.status = 500;
+            res.set_content("{\"error\": \"Internal Server Error\"}", "application/json");
+        }
+        });
+
+    // Ruta para recibir órdenes de la Web (TX)
+    svr.Post("/api/transmit", [](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto j = nlohmann::json::parse(req.body);
+            std::string text = j.value("text", "");
+            std::cout << "\n[WEB TX] Recibido para transmitir: " << text << std::endl;
+            // Aquí irá el acople con el futuro módulo TTS
+            res.set_content("OK", "text/plain");
+        }
+        catch (...) {
+            res.status = 400;
+        }
+        });
+
+    std::cout << "[*] Servidor API iniciado en puerto 8080" << std::endl;
+    svr.listen("0.0.0.0", 8080);
+    });
+
+    serverThread.detach(); // Separamos el hilo para que viva de forma independiente
+}
+
+// ============================================================================
+// MAIN
+// ============================================================================
+
+int main() {
+
+    // Initialize components
+    Transcriber transcriber;
+    AudioEngine audio;
+    CallsignParser parser;
+    QRZClient qrz;
+    std::ofstream logFile("registro_radio.txt", std::ios::app);
+    SetConsoleOutputCP(CP_UTF8);
+
+	if(system_init(transcriber, audio, qrz)!=0){
+        std::cerr << "[!] Error en la inicialización del sistema. Abortando." << std::endl;
+        return 1;
+	}
+	web_init();
 
     // Main loop
     setColor(11);
     std::cout << "--- RadioAccess TFG: Sistema Activo ---" << std::endl;
     setColor(7);
 
-    std::string contextoGlobal = "";
     std::set<std::string> sessionHistory;
 
     while (true) {
-        size_t acumulado = engine.getQueuedSamplesCount();
+        size_t acumulado = audio.getQueuedSamplesCount();
 
         // Manage latency
         if (acumulado > UMBRAL_LATENCIA) {
             std::cout << "[!] Latencia detectada (" << acumulado / 16000 << "s). Saltando al presente..." << std::endl;
-            engine.discardOldAudio(BLOQUE_3S);
+            audio.discardOldAudio(BLOQUE_3S);
             continue;
         }
 
@@ -143,7 +241,7 @@ int main() {
         }
 
         // Transcription
-        std::vector<float> pcmData = engine.getSamples(BLOQUE_3S);
+        std::vector<float> pcmData = audio.getSamples(BLOQUE_3S);
         std::string textoActual = transcriber.transcribe(pcmData);
 
         // Filter noise
@@ -151,13 +249,13 @@ int main() {
             std::cout << "[DEBUG] Silencio detectado" << std::endl;
             continue;
         }
+		// Actualizamos el estado global con la última transcripción para que la Web pueda acceder a ella
+        {
+            std::lock_guard<std::mutex> lock(globalState.mtx);
+            globalState.lastTranscription = textoActual;
+        }
 
         std::string ahora = getTimestamp();
-        contextoGlobal += " " + textoActual;
-
-        if (contextoGlobal.length() > MAX_CONTEXTO) {
-            contextoGlobal.erase(0, contextoGlobal.length() - 100);
-        }
 
         std::cout << "[" << ahora << "] " << textoActual << std::endl;
         logFile << "[" << ahora << "] " << textoActual << std::endl;
@@ -179,6 +277,14 @@ int main() {
 
                 logFile << ">>> CONTACTO VALIDADO: " << op.callsign << " - " << op.name << " (" << op.country << ")" << std::endl;
                 sessionHistory.insert(callsign);
+                {
+                    std::lock_guard<std::mutex> lock(globalState.mtx);
+                    nlohmann::json c;
+                    c["call"] = op.callsign;
+                    c["name"] = op.name;
+                    c["loc"] = op.city + ", " + op.country;
+                    globalState.validatedContacts.push_back(c);
+                }
             } else {
                 setColor(10);
                 std::cout << "[DEBUG] Candidato descartado por QRZ: " << callsign << std::endl;

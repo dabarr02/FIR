@@ -20,5 +20,5 @@ private:
     std::map<std::string, char> radioMapping;
     std::regex callsignRegex;
     std::string charBuffer; 
-    const size_t MAX_BUFFER = 30;
+    const size_t MAX_BUFFER = 15;
 };

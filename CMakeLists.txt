@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # 1. BUSCAR LIBRERÍAS
 find_package(CURL REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # 2. INCLUSIONES
 include_directories(include)
@@ -25,6 +26,7 @@ add_executable(RadioAccessTFG
 target_link_libraries(RadioAccessTFG PRIVATE 
     CURL::libcurl        
     pugixml::pugixml
+    nlohmann_json::nlohmann_json
     "${CMAKE_SOURCE_DIR}/third_party/whisper/lib/whisper.lib"
     "${CMAKE_SOURCE_DIR}/third_party/whisper/lib/ggml.lib"
     "${CMAKE_SOURCE_DIR}/third_party/whisper/lib/ggml-base.lib"

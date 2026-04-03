@@ -10,7 +10,9 @@ struct OperatorData {
 
 class QRZClient {
 public:
-    QRZClient(const std::string& user, const std::string& pass);
+
+    QRZClient();
+    void init(const std::string& user, const std::string& pass);
 
     // Paso 1: Autenticarse y obtener la Session Key
     bool login();

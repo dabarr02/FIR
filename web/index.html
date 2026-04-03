@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>RadioAccess TFG - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #1a1a1a; color: white; }
+        .card { background: #2d2d2d; border: 1px solid #444; color: white; }
+        .transcription-box { height: 200px; overflow-y: auto; background: #000; padding: 10px; font-family: monospace; border: 2px solid #00ff00; }
+    </style>
+</head>
+<body class="container py-4">
+    <h1 class="mb-4">📡 RadioAccess TFG <small class="text-success fs-6">● Activo</small></h1>
+
+    <div class="row">
+        <div class="col-md-7">
+            <h4>Última Transcripción</h4>
+            <div id="transcription" class="transcription-box mb-3 text-success">Esperando audio...</div>
+            
+            <h4>Transmitir Texto (TX)</h4>
+            <div class="input-group">
+                <input type="text" id="txText" class="form-control" placeholder="Escribe aquí para transmitir...">
+                <button class="btn btn-primary" onclick="transmit()">Enviar</button>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <h4>Contactos Validados</h4>
+            <div id="contactsList"></div>
+        </div>
+    </div>
+
+    <script>
+        // Función para pedir datos al C++ cada segundo
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                // Actualizar texto
+                if(data.transcription) {
+                    document.getElementById('transcription').innerText = data.transcription;
+                }
+
+                // Actualizar lista de contactos
+                let html = '';
+                data.contacts.reverse().forEach(c => {
+                    html += `
+                    <div class="card mb-2">
+                        <div class="card-body py-2">
+                            <h5 class="card-title mb-0 text-warning">${c.call}</h5>
+                            <p class="card-text small mb-0">${c.name} - ${c.loc}</p>
+                        </div>
+                    </div>`;
+                });
+                document.getElementById('contactsList').innerHTML = html;
+
+            } catch (e) { console.error("Error conectando con el backend C++"); }
+        }
+
+        async function transmit() {
+            const text = document.getElementById('txText').value;
+            await fetch('/api/transmit', {
+                method: 'POST',
+                body: JSON.stringify({ text: text })
+            });
+            document.getElementById('txText').value = '';
+        }
+
+        setInterval(updateStatus, 1000); // Polling cada 1 segundo
+    </script>
+</body>
+</html>

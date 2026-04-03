@@ -112,6 +112,7 @@ std::string CallsignParser::parse(const std::string& rawText) {
         // Solo devolvemos si es distinto al último para no repetir
         if (found != lastDetected) {
             lastDetected = found;
+            reset();
             result = found;
         }
     }
@@ -120,6 +121,6 @@ std::string CallsignParser::parse(const std::string& rawText) {
 }
 
 void CallsignParser::reset() {
-    lastDetected = "";
+    //lastDetected = "";
     charBuffer = ""; // También limpiamos el buffer
 }

@@ -9,9 +9,13 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* use
     return size * nmemb;
 }
 
-QRZClient::QRZClient(const std::string& user, const std::string& pass)
-    : username(user), password(pass) {
+void QRZClient::init(const std::string& user, const std::string& pass)
+ {
+    this->username = user;
+    this->password = pass;
 }
+
+QRZClient::QRZClient() {}
 
 std::string QRZClient::httpRequest(const std::string& url) {
     CURL* curl = curl_easy_init();

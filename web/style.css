@@ -1,0 +1,91 @@
+:root {
+    --bg-color: #0d1117;
+    --card-bg: #161b22;
+    --text-main: #c9d1d9;
+    --radio-green: #2ecc71;
+    --radio-amber: #ffb100;
+}
+
+body { 
+    background-color: var(--bg-color); 
+    color: var(--text-main);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Caja de Transcripción estilo Terminal */
+.transcription-box { 
+    height: 350px; 
+    overflow-y: auto; 
+    background: #000; 
+    padding: 20px; 
+    font-family: 'Consolas', 'Monaco', monospace; 
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    color: var(--radio-green);
+    box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.05);
+    line-height: 1.6;
+}
+
+/* Scrollbar personalizada */
+.transcription-box::-webkit-scrollbar { width: 8px; }
+.transcription-box::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+
+/* Tarjetas de Contactos */
+.contact-card {
+    background: var(--card-bg);
+    border: 1px solid #30363d;
+    border-left: 4px solid var(--radio-amber);
+    margin-bottom: 12px;
+    border-radius: 6px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.status-online {
+    width: 10px;
+    height: 10px;
+    background-color: var(--radio-green);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 8px var(--radio-green);
+}
+
+/* Estilo para el enlace de QRZ */
+.callsign-link {
+    text-decoration: none; /* Quita el subrayado por defecto */
+    transition: all 0.2s ease;
+}
+
+.callsign-link:hover strong {
+    color: #ffffff !important; /* El indicativo brilla en blanco al pasar el ratón */
+    text-shadow: 0 0 10px rgba(255, 177, 0, 0.5); /* Efecto de resplandor */
+    text-decoration: underline; /* Solo subrayamos al pasar el ratón */
+}
+
+.contact-card {
+    cursor: default; /* El cursor normal para la tarjeta */
+}
+
+/* Opcional: si quieres que toda la tarjeta parezca clickable */
+.callsign-link strong {
+    cursor: pointer;
+}
+
+.ls-wide {
+    letter-spacing: 1.5px;
+}
+
+.extra-small {
+    font-size: 0.75rem;
+}
+
+/* Animacion opcional para el boton de apagado al pasar el raton */
+.btn-outline-danger:hover {
+    background-color: #dc3545 !important;
+    color: white !important;
+    box-shadow: 0 0 15px rgba(220, 53, 69, 0.4);
+}

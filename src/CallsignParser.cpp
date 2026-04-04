@@ -120,6 +120,29 @@ std::string CallsignParser::parse(const std::string& rawText) {
     return result;
 }
 
+std::vector<std::string> CallsignParser::parseAll(const std::string& rawText) {
+    std::string filtered = cleanPhonetic(rawText);
+    std::vector<std::string> candidates;
+
+    // Eliminamos reportes comunes que confunden a la regex
+    filtered = std::regex_replace(filtered, std::regex("599|559|59"), "");
+
+    // Usamos sregex_iterator para encontrar TODAS las coincidencias
+    auto words_begin = std::sregex_iterator(filtered.begin(), filtered.end(), callsignRegex);
+    auto words_end = std::sregex_iterator();
+
+    for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
+        std::string found = i->str();
+
+        // Solo lo añadimos si tiene una longitud mínima lógica (ej. 3 caracteres)
+        if (found.length() >= 3) {
+            candidates.push_back(found);
+        }
+    }
+
+    return candidates;
+}
+
 void CallsignParser::reset() {
     //lastDetected = "";
     charBuffer = ""; // También limpiamos el buffer

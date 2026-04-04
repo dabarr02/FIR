@@ -36,8 +36,11 @@ const int MAX_CONTEXTO = 500;
 struct RadioState {
     std::string lastTranscription;
     std::vector<nlohmann::json> validatedContacts;
+    bool isProcessing = false;
+    bool running = true;
     std::mutex mtx; 
 };
+
 
 RadioState globalState;
 
@@ -158,6 +161,7 @@ void web_init() {
                 nlohmann::json j;
                 j["transcription"] = globalState.lastTranscription;
                 j["contacts"] = globalState.validatedContacts;
+                j["isProcessing"] = globalState.isProcessing;
 
                 // Convertimos a string mientras aún tenemos el lock para asegurar consistencia
                 body = j.dump();
@@ -189,6 +193,28 @@ void web_init() {
         catch (...) {
             res.status = 400;
         }
+        });
+
+    svr.Post("/api/toggle", [](const httplib::Request&, httplib::Response& res) {
+        std::lock_guard<std::mutex> lock(globalState.mtx);
+        globalState.isProcessing = !globalState.isProcessing;
+
+        res.set_content(globalState.isProcessing ? "true" : "false", "text/plain");
+        std::cout << "[SYSTEM] Motor de radio: " << (globalState.isProcessing ? "ACTIVO" : "PAUSADO") << std::endl;
+        });
+
+    svr.Post("/api/shutdown", [&](const httplib::Request&, httplib::Response& res) {
+        std::cout << "[SYSTEM] Iniciando secuencia de apagado..." << std::endl;
+
+        {
+            std::lock_guard<std::mutex> lock(globalState.mtx);
+            globalState.running = false; // Avisamos al motor de audio que pare
+        }
+
+        res.set_content("Sistema apagado correctamente", "text/plain");
+
+        // Detenemos el servidor HTTP
+        svr.stop(); 
         });
 
     std::cout << "[*] Servidor API iniciado en puerto 8080" << std::endl;
@@ -225,7 +251,20 @@ int main() {
 
     std::set<std::string> sessionHistory;
 
-    while (true) {
+    while (globalState.running) {
+
+		//========Comprobamos si el motor de radio está activo antes de procesar audio========
+        bool motorActivo;
+        {
+            std::lock_guard<std::mutex> lock(globalState.mtx);
+            motorActivo = globalState.isProcessing;
+        }
+
+        if (!motorActivo) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Dormimos un poco
+            continue; // Saltamos al principio del bucle sin procesar audio
+        }
+		//====================================================================================
         size_t acumulado = audio.getQueuedSamplesCount();
 
         // Manage latency
@@ -261,37 +300,51 @@ int main() {
         logFile << "[" << ahora << "] " << textoActual << std::endl;
 
         // Parse and validate callsign
-        std::string callsign = parser.parse(textoActual);
+        std::vector<std::string> candidates = parser.parseAll(textoActual);
 
-        if (!callsign.empty() && sessionHistory.find(callsign) == sessionHistory.end()) {
-            OperatorData op = qrz.lookup(callsign);
+       
+		for (const auto& callsign : candidates) {
+            if (sessionHistory.find(callsign) == sessionHistory.end()) {
+                OperatorData op = qrz.lookup(callsign);
 
-            if (op.found) {
-                setColor(10);
-                std::cout << "\n==========================================" << std::endl;
-                std::cout << "  [!] CONTACTO VALIDADO: " << op.callsign << std::endl;
-                std::cout << "  NOMBRE:    " << op.name << std::endl;
-                std::cout << "  UBICACIÓN: " << op.city << " (" << op.country << ")" << std::endl;
-                std::cout << "==========================================\n" << std::endl;
-                setColor(7);
+                if (op.found) {
+                    setColor(10);
+                    std::cout << "\n==========================================" << std::endl;
+                    std::cout << "  [!] CONTACTO VALIDADO: " << op.callsign << std::endl;
+                    std::cout << "  NOMBRE:    " << op.name << std::endl;
+                    std::cout << "  UBICACIÓN: " << op.city << " (" << op.country << ")" << std::endl;
+                    std::cout << "==========================================\n" << std::endl;
+                    setColor(7);
 
-                logFile << ">>> CONTACTO VALIDADO: " << op.callsign << " - " << op.name << " (" << op.country << ")" << std::endl;
-                sessionHistory.insert(callsign);
-                {
-                    std::lock_guard<std::mutex> lock(globalState.mtx);
-                    nlohmann::json c;
-                    c["call"] = op.callsign;
-                    c["name"] = op.name;
-                    c["loc"] = op.city + ", " + op.country;
-                    globalState.validatedContacts.push_back(c);
+                    logFile << ">>> CONTACTO VALIDADO: " << op.callsign << " - " << op.name << " (" << op.country << ")" << std::endl;
+                    sessionHistory.insert(callsign);
+                    {
+                        std::lock_guard<std::mutex> lock(globalState.mtx);
+                        nlohmann::json c;
+                        c["call"] = op.callsign;
+                        c["name"] = op.name;
+                        c["loc"] = op.city + ", " + op.country;
+                        globalState.validatedContacts.push_back(c);
+                    }
                 }
-            } else {
-                setColor(10);
-                std::cout << "[DEBUG] Candidato descartado por QRZ: " << callsign << std::endl;
-                setColor(7);
+                else {
+                    setColor(10);
+                    std::cout << "[DEBUG] Candidato descartado por QRZ: " << callsign << std::endl;
+                    setColor(7);
+                }
             }
-        }
+         }
 
         logFile.flush();
     }
+
+
+    std::cout << "[*] Cerrando módulos de radio..." << std::endl;
+    audio.stop();   // Detiene PortAudio
+    logFile.close(); // Cierra el archivo de registro
+
+    std::cout << "[*] Deteniendo Nginx..." << std::endl;
+    system("taskkill /f /im nginx.exe >nul 2>&1"); //
+
+    std::cout << "--- Sistema RadioAccess apagado. ---" << std::endl;
 }

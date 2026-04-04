@@ -10,6 +10,7 @@ public:
 
     // Procesa el texto bruto y devuelve el indicativo si encuentra uno válido
     std::string parse(const std::string& rawText);
+	std::vector<std::string> parseAll(const std::string& rawText);
 
     // Limpia la memoria del último indicativo (útil tras silencios)
     void reset();
@@ -20,5 +21,5 @@ private:
     std::map<std::string, char> radioMapping;
     std::regex callsignRegex;
     std::string charBuffer; 
-    const size_t MAX_BUFFER = 15;
+    const size_t MAX_BUFFER = 40;
 };

@@ -19,6 +19,37 @@
         </div>
     </header>
 
+    <details class="station-settings card mb-4 border-secondary bg-dark">
+        <summary class="card-header text-uppercase small ls-wide text-info">
+            ⚙️ Configuración de Estación
+        </summary>
+        <div class="card-body row g-3">
+            <div class="col-md-3">
+                <label class="small text-muted">Usuario QRZ</label>
+                <input type="text" id="cfgUser" class="form-control form-control-sm bg-dark text-white border-secondary">
+            </div>
+            <div class="col-md-3">
+                <label class="small text-muted">Contraseña QRZ</label>
+                <input type="password" id="cfgPass" class="form-control form-control-sm bg-dark text-white border-secondary">
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted">Mi Indicativo</label>
+                <input type="text" id="cfgMyCall" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="EA4IAX">
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted">Banda</label>
+                <select id="cfgBand" class="form-select form-select-sm bg-dark text-white border-secondary">
+                    <option value="2M">2 Meters</option>
+                    <option value="40M">40 Meters</option>
+                    <option value="20M">20 Meters</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-info btn-sm w-100 fw-bold" onclick="saveStationSettings()">GUARDAR</button>
+            </div>
+        </div>
+    </details>
+
     <div class="row g-4">
         <div class="col-lg-8">
             <h5 class="mb-3 text-uppercase small ls-wide">Transcripción en Vivo</h5>
@@ -40,6 +71,9 @@
 
             <div class="mt-5 pt-4 border-top border-secondary">
                 <h6 class="text-uppercase small text-muted mb-3 ls-wide">Gestión del Sistema</h6>
+                <button class="btn btn-outline-info w-100 fw-bold py-2 mb-3" onclick="downloadReport()">
+                    💾 EXPORTAR LOGBOOK (ADIF)
+                </button>
                 <button class="btn btn-outline-danger w-100 fw-bold py-2" onclick="shutdownSystem()" style="border-style: dashed;">
                     🛑 DETENER TODO EL SISTEMA
                 </button>

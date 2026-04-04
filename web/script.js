@@ -102,10 +102,21 @@ async function sendTX() {
 
 async function toggleEngine() {
     try {
-        await fetch('/api/toggle', { method: 'POST' });
-        fetchData(); // Actualizamos la UI inmediatamente
+        const res = await fetch('/api/toggle', { method: 'POST' });
+        
+        if (res.status === 403) {
+            // El servidor nos ha dicho que faltan credenciales
+            alert("⚠️ Configuración requerida: Por favor, introduce tus datos de QRZ antes de arrancar el motor.");
+            
+            // Abrimos automáticamente el panel de configuración para ayudar al usuario
+            const settingsPanel = document.querySelector('.station-settings');
+            if (settingsPanel) settingsPanel.open = true;
+            return;
+        }
+
+        fetchData(); // Si todo va bien, actualizamos la interfaz
     } catch (e) {
-        console.error("No se pudo cambiar el estado del motor");
+        console.error("No se pudo conectar con el motor de radio.");
     }
 }
 
@@ -134,12 +145,71 @@ async function shutdownSystem() {
     }
 }
 
+
+
+async function saveStationSettings() {
+    const settings = {
+        user: document.getElementById('cfgUser').value,
+        pass: document.getElementById('cfgPass').value,
+        myCall: document.getElementById('cfgMyCall').value,
+        band: document.getElementById('cfgBand').value
+    };
+
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+
+        if (res.ok) {
+            alert("Configuración aplicada.");
+            const settingsPanel = document.querySelector('.station-settings');
+            if (settingsPanel) settingsPanel.open = false;
+            return;
+        }
+
+        if (res.status === 401) {
+            alert("Datos incorrectos. Revisa usuario y contraseña de QRZ.");
+        } else {
+            alert("No se pudo aplicar la configuración.");
+        }
+    } catch (e) {
+        alert("Error al conectar con el motor.");
+    }
+}
+
+function downloadReport() {
+    // Al llamar a esta URL, el navegador recibirá el "attachment" y empezará la descarga
+    window.location.href = '/api/report';
+}
+
+
 document.getElementById('txInput').addEventListener('keydown', function(event) {
     if (event.key === 'Enter') {
         event.preventDefault(); // Evita que el navegador haga cosas raras (como recargar)
         sendTX();
     }
 });
+
+// Al cargar la página, recuperamos la configuración guardada
+window.onload = async () => {
+    try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        
+        document.getElementById('cfgUser').value = data.user || "";
+        document.getElementById('cfgPass').value = data.pass || "";
+        document.getElementById('cfgMyCall').value = data.myCall || "";
+        document.getElementById('cfgBand').value = data.band || "2M";
+
+        if (data.needsConfig) {
+            alert("⚠️ Configuración inicial requerida. Por favor, introduce tus datos de QRZ.");
+        }
+    } catch (e) {
+        console.error("Error cargando ajustes iniciales");
+    }
+};
 
 // Ejecutar cada 400ms (balance perfecto entre fluidez y carga)
 setInterval(fetchData, 400);

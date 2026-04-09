@@ -37,7 +37,7 @@ CallsignParser::CallsignParser() {
     };
 
     // Regex: 1-2 letras + 1 número + 1-3 letras
-    callsignRegex = std::regex("([A-Z]{1,2}[0-9][A-Z]{1,3})");
+    callsignRegex = std::regex("([A-Z]{1,2}[0-9]{1,2}[A-Z]{1,3})");
     lastDetected = "";
 }
 

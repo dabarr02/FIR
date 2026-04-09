@@ -17,6 +17,7 @@ public:
     size_t getQueuedSamplesCount();
     std::vector<float> AudioEngine::getSamples(size_t count);
     void AudioEngine::discardOldAudio(size_t keepLastSamples);
+  
 
 private:
     static int paCallback(const void *inputBuffer, void *outputBuffer,

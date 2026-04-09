@@ -20,6 +20,7 @@ add_executable(RadioAccessTFG
     src/Transcriber.cpp
     src/CallsignParser.cpp
     src/QRZClient.cpp
+    src/TTSManager.cpp
 )
 
 # 4. ENLACE (Linking)

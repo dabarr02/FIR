@@ -146,13 +146,28 @@ async function shutdownSystem() {
 }
 
 
+async function loadAudioDevices() {
+    try {
+        const res = await fetch('/api/devices');
+        const devices = await res.json();
+        const select = document.getElementById('cfgAudioOut');
+        select.innerHTML = ""; // Limpiar
+        
+        devices.forEach(d => {
+            select.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+        });
+    } catch (e) { console.error("Error cargando dispositivos de audio"); }
+}
+
+
 
 async function saveStationSettings() {
     const settings = {
         user: document.getElementById('cfgUser').value,
         pass: document.getElementById('cfgPass').value,
         myCall: document.getElementById('cfgMyCall').value,
-        band: document.getElementById('cfgBand').value
+        band: document.getElementById('cfgBand').value,
+        deviceId: parseInt(document.getElementById('cfgAudioOut').value)
     };
 
     try {
@@ -197,11 +212,13 @@ window.onload = async () => {
     try {
         const res = await fetch('/api/settings');
         const data = await res.json();
+        await loadAudioDevices();
         
         document.getElementById('cfgUser').value = data.user || "";
         document.getElementById('cfgPass').value = data.pass || "";
         document.getElementById('cfgMyCall').value = data.myCall || "";
         document.getElementById('cfgBand').value = data.band || "2M";
+        document.getElementById('cfgAudioOut').value = data.deviceId || -1;
 
         if (data.needsConfig) {
             alert("⚠️ Configuración inicial requerida. Por favor, introduce tus datos de QRZ.");

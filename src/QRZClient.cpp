@@ -74,7 +74,7 @@ OperatorData QRZClient::lookup(const std::string& callsign) {
 
     std::string url = "https://xmldata.qrz.com/xml/current/?s=" + sessionKey + ";callsign=" + callsign;
     std::string xml = httpRequest(url);
-    //std::cout << "[DEBUG XML LOOKUP]: " << xml << std::endl;
+    std::cout << "[DEBUG XML LOOKUP]: " << xml << std::endl;
     pugi::xml_document doc;
     if (doc.load_string(xml.c_str())) {
         pugi::xml_node callNode = doc.child("QRZDatabase").child("Callsign");

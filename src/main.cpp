@@ -24,6 +24,8 @@
 #include "Transcriber.hpp"
 #include "CallsignParser.hpp"
 #include "QRZClient.hpp"
+#include "TTSManager.hpp"
+
 
 // Constantes
 const size_t BLOQUE_3S = 16000 * 4;
@@ -44,12 +46,34 @@ struct RadioState {
     std::string currentBand = "2M";
 };
 
+TTSManager tts;
 RadioState globalState;
 QRZClient qrz; // Cliente global
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+// Añade esta función en main.cpp
+bool esAlucinacion(std::string texto) {
+    // Convertimos a minúsculas para comparar fácil
+    std::transform(texto.begin(), texto.end(), texto.begin(), ::tolower);
+
+    const std::vector<std::string> blacklist = {
+        "and the rest of the world",
+        "thank you for watching",
+        "subtitles by",
+        "watching!",
+        "please subscribe",
+        "and zero ventura" // He visto que te sale algo parecido
+    };
+
+    for (const auto& f : blacklist) {
+        if (texto.find(f) != std::string::npos) return true;
+    }
+    return false;
+}
+
 
 void updateEnvFile(const std::string& user, const std::string& pass, const std::string& call) {
     std::ofstream envFile(".env", std::ios::trunc);
@@ -113,7 +137,6 @@ std::string getTimestamp() {
 int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance) {
     if (!trans.init("models/ggml-small.bin")) return 1;
     if (!audio.start()) return 1;
-
     loadEnv(".env");
     loadPersistentSettings();
 
@@ -128,11 +151,16 @@ int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance)
             globalState.needsConfig = true;
         }
     }
+    if (!tts.init()) {
+        std::cout << "[!] Error inicializando motor de voz." << std::endl;
+        return 1;
+    }
     return 0;
 }
 
 void web_init() {
     std::thread serverThread([]() {
+        CoInitialize(NULL);
         httplib::Server svr;
 
         svr.Get("/api/report", [](const httplib::Request&, httplib::Response& res) {
@@ -180,6 +208,12 @@ void web_init() {
             try {
                 auto j = nlohmann::json::parse(req.body);
                 std::string u = j.at("user"), p = j.at("pass"), c = j.at("myCall"), b = j.at("band");
+
+                if (j.contains("deviceId")) {
+                    int devId = j.at("deviceId").get<int>();
+                    tts.setOutputDevice(devId);
+                    std::cout << "[SYSTEM] Salida de audio cambiada al dispositivo ID: " << devId << std::endl;
+                }
                 
                 qrz.init(u, p);
                 if (qrz.login()) {
@@ -217,6 +251,29 @@ void web_init() {
             { std::lock_guard<std::mutex> lock_stop(globalState.mtx); globalState.running = false; }
             res.set_content("OK", "text/plain");
         });
+
+        svr.Post("/api/transmit", [](const httplib::Request& req, httplib::Response& res) {
+            try {
+                auto j = nlohmann::json::parse(req.body);
+                std::string textoParaHablar = j.at("text").get<std::string>();
+
+                std::cout << "[TX] Sintetizando: " << textoParaHablar << std::endl;
+                tts.speak(textoParaHablar);
+
+                res.set_content("{\"status\":\"ok\"}", "application/json");
+            }
+            catch (...) { res.status = 400; }
+            });
+        svr.Get("/api/devices", [](const httplib::Request&, httplib::Response& res) {
+            auto devices = tts.getOutputDevices();
+            std::cout << "[DEBUG] Web solicitó dispositivos. Encontrados: " << devices.size() << std::endl;
+            nlohmann::json j = nlohmann::json::array();
+            for (const auto& d : devices) {
+                j.push_back({ {"id", d.id}, {"name", d.name} });
+				std::cout << "[DEBUG] Dispositivo encontrado: ID=" << d.id << ", Name=\"" << d.name << "\"" << std::endl;
+            }
+            res.set_content(j.dump(), "application/json");
+            });
 
         svr.listen("0.0.0.0", 8080);
     });
@@ -267,7 +324,7 @@ int main() {
 
        
 
-        if (textoActual.empty() || textoActual.find("[") != std::string::npos || textoActual.find("(") != std::string::npos) continue;
+        if (textoActual.empty() || textoActual.find("[") != std::string::npos || textoActual.find("(") != std::string::npos || esAlucinacion(textoActual)) continue;
 
         {
             std::lock_guard<std::mutex> lock_text(globalState.mtx);

@@ -74,6 +74,22 @@ bool esAlucinacion(std::string texto) {
     return false;
 }
 
+std::string getADIFDate() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d");
+    return ss.str();
+}
+
+std::string getADIFTime() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&in_time_t), "%H%M%S");
+    return ss.str();
+}
+
 
 void updateEnvFile(const std::string& user, const std::string& pass, const std::string& call) {
     std::ofstream envFile(".env", std::ios::trunc);
@@ -171,14 +187,20 @@ void web_init() {
             std::stringstream adif;
             {
                 std::lock_guard<std::mutex> lock_report(globalState.mtx);
-                adif << "ADIF Export from RadioAccess\n<ADIF_VER:5>3.1.4\n<PROGRAMID:11>RadioAccess\n";
+                adif << "ADIF Export from RadioAccess\n<ADIF_VER:5>3.1.4\n<PROGRAMID:3>FIR\n";
                 adif << "<STATION_CALLSIGN:" << globalState.myCallsign.length() << ">" << globalState.myCallsign << "\n<EOH>\n\n";
 
                 for (const auto& c : globalState.validatedContacts) {
                     std::string call = c["call"], name = c["name"], loc = c["loc"];
-                    adif << "<CALL:" << call.length() << ">" << call << " <NAME:" << name.length() << ">" << name 
-                         << " <QTH:" << loc.length() << ">" << loc << " <BAND:" << globalState.currentBand.length() << ">" << globalState.currentBand 
-                         << " <MODE:2>FM <EOR>\n";
+                    std::string date = c["date"], time = c["time"]; 
+
+                    adif << "<CALL:" << call.length() << ">" << call
+                        << " <QSO_DATE:" << date.length() << ">" << date
+                        << " <TIME_ON:" << time.length() << ">" << time
+                        << " <NAME:" << name.length() << ">" << name
+                        << " <QTH:" << loc.length() << ">" << loc
+                        << " <BAND:" << globalState.currentBand.length() << ">" << globalState.currentBand
+                        << " <MODE:2>FM <EOR>\n";
                 }
             }
             res.set_content(adif.str(), "text/plain");
@@ -294,7 +316,9 @@ void web_init() {
                     globalState.validatedContacts.push_back({
                         {"call", op.callsign},
                         {"name", op.name},
-                        {"loc", op.city + ", " + op.country}
+                        {"loc", op.city + ", " + op.country},
+                        { "date", getADIFDate() }, 
+                        {"time", getADIFTime()}  
                         });
 
                     res.set_content("{\"status\":\"ok\"}", "application/json");
@@ -406,7 +430,13 @@ int main() {
                     sessionHistory.insert(callsign);
                     {
                         std::lock_guard<std::mutex> lock_contact(globalState.mtx);
-                        globalState.validatedContacts.push_back({ {"call", op.callsign}, {"name", op.name}, {"loc", op.city + ", " + op.country} });
+                        globalState.validatedContacts.push_back({
+                            {"call", op.callsign}, 
+                            {"name", op.name}, 
+                            {"loc", op.city + ", " + op.country},
+                            { "date", getADIFDate() }, 
+							{"time", getADIFTime()}
+                            });
                     }
                 }
             }

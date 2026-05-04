@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RadioAccess | TFG Dashboard</title>
+    <title>FIR | TFG Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="container py-4">
     <header class="mb-5 d-flex justify-content-between align-items-center">
-        <h2 class="fw-bold">📡 RadioAccess <span class="fs-6 fw-normal text-muted">v2.0</span></h2>
+        <h2 class="fw-bold">FIR</h2>
         <div class="d-flex align-items-center">
             <button id="toggleBtn" class="btn btn-sm btn-outline-danger me-3 fw-bold" onclick="toggleEngine()">
                 PAUSAR MOTOR
@@ -71,7 +71,15 @@
         </div>
 
         <div class="col-lg-4">
+            <div class="manual-entry-box mb-4 p-3 bg-dark border border-secondary rounded">
+                <h6 class="text-uppercase small text-info mb-3 ls-wide">Entrada Manual de Contacto</h6>
+                <div class="input-group input-group-sm">
+                    <input type="text" id="manualCallInput" class="form-control bg-dark text-white border-secondary" placeholder="Ej: EA1ABC">
+                    <button class="btn btn-info fw-bold" onclick="addManualCallsign()">VALIDAR</button>
+                </div>
+            </div>
             <h5 class="mb-3 text-uppercase small ls-wide">Contactos QRZ Validados</h5>
+            
             <div id="contactsList" style="max-height: 500px; overflow-y: auto;">
             </div>
 

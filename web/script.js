@@ -120,6 +120,31 @@ async function toggleEngine() {
     }
 }
 
+async function addManualCallsign() {
+    const input = document.getElementById('manualCallInput');
+    const callsign = input.value.trim().toUpperCase();
+    
+    if (!callsign) return;
+
+    try {
+        const res = await fetch('/api/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ call: callsign })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            input.value = ""; // Limpiar tras éxito
+            // La función fetchData() se encarga de refrescar la lista automáticamente
+        } else {
+            alert("El indicativo no existe en QRZ o el motor está pausado.");
+        }
+    } catch (e) {
+        console.error("Error en la validación manual");
+    }
+}
+
 async function shutdownSystem() {
     // Pedimos confirmación para evitar desastres
     const confirmacion = confirm("⚠️ Vas a detener el motor de radio y cerrar Nginx. ¿Estás seguro?");

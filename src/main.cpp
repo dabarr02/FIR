@@ -14,6 +14,7 @@
 #include <map>
 #include <set>
 #include <mutex>
+#include <shellapi.h>
 
 #pragma warning(push, 0) 
 #include "httplib.h"
@@ -54,7 +55,6 @@ QRZClient qrz; // Cliente global
 // UTILITY FUNCTIONS
 // ============================================================================
 
-// Añade esta función en main.cpp
 bool esAlucinacion(std::string texto) {
     // Convertimos a minúsculas para comparar fácil
     std::transform(texto.begin(), texto.end(), texto.begin(), ::tolower);
@@ -111,12 +111,16 @@ void loadPersistentSettings() {
     _dupenv_s(&u, &sz, "QRZ_USER");
     _dupenv_s(&p, &sz, "QRZ_PASS");
     _dupenv_s(&c, &sz, "MY_CALLSIGN");
-
+    
     std::lock_guard<std::mutex> lock(globalState.mtx);
     globalState.qrzUser = u ? u : "";
     globalState.qrzPass = p ? p : "";
     globalState.myCallsign = c ? c : "";
     globalState.needsConfig = (globalState.qrzUser.empty() || globalState.qrzPass.empty());
+
+    std::cout << "[DEBUG] .env cargado -> USER: " << (u ? std::string(u) : "VACIO") 
+              << ", PASS: " << (p ? "***" : "VACIO") 
+              << ", CALLSIGN: " << (c ? std::string(c) : "VACIO") << std::endl;
 
     if (u) free(u); if (p) free(p); if (c) free(c);
 }
@@ -275,9 +279,65 @@ void web_init() {
             res.set_content(j.dump(), "application/json");
             });
 
+        svr.Post("/api/lookup", [](const httplib::Request& req, httplib::Response& res) {
+            try {
+                auto j = nlohmann::json::parse(req.body);
+                std::string call = j.at("call").get<std::string>();
+
+                // Realizamos la consulta real a QRZ usando el cliente existente
+                OperatorData op = qrz.lookup(call);
+
+                if (op.found) {
+                    std::lock_guard<std::mutex> lock(globalState.mtx);
+
+                    // Añadimos al historial para que salga en el ADIF
+                    globalState.validatedContacts.push_back({
+                        {"call", op.callsign},
+                        {"name", op.name},
+                        {"loc", op.city + ", " + op.country}
+                        });
+
+                    res.set_content("{\"status\":\"ok\"}", "application/json");
+                }
+                else {
+                    res.status = 404; // No encontrado en QRZ
+                }
+            }
+            catch (...) {
+                res.status = 400;
+            }
+            });
+
         svr.listen("0.0.0.0", 8080);
     });
     serverThread.detach();
+}
+
+void startFrontend() {
+    std::cout << "[*] Iniciando Nginx..." << std::endl;
+    // Terminamos cualquier instancia previa que se haya quedado colgada
+    system("taskkill /f /im nginx.exe >nul 2>&1");
+
+    // Construir la ruta al ejecutable de nginx y su directorio base
+    // Asumiendo que el .exe está en "build/Release/" o "build/Debug/", 
+    // necesitamos retroceder 2 carpetas.
+    std::string nginxExePath = "..\\..\\tools\\nginx\\nginx.exe";
+    std::string nginxDirArgs = "-p ..\\..\\tools\\nginx";
+
+    // Usamos ShellExecute para lanzar nginx en modo oculto (SW_HIDE)
+    // sin bloquear el flujo principal de nuestro C++
+    HINSTANCE hInst = ShellExecuteA(NULL, "open", nginxExePath.c_str(), nginxDirArgs.c_str(), NULL, SW_HIDE);
+
+    if ((reinterpret_cast<INT_PTR>(hInst)) <= 32) {
+        std::cerr << "[!] Error de lanzamiento: Nginx no se encontro en " << nginxExePath << std::endl;
+    }
+
+    std::cout << "[*] Abriendo navegador en http://localhost..." << std::endl;
+    // Damos un par de segundos para que el servidor Nginx y el de C++ estén 100% levantados
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    // Abre http://localhost utilizando el navegador por defecto del sistema
+    ShellExecuteA(NULL, "open", "http://localhost", NULL, NULL, SW_SHOWNORMAL);
 }
 
 int main() {
@@ -293,6 +353,8 @@ int main() {
         return 1;
     }
     web_init();
+
+    startFrontend();
 
     std::set<std::string> sessionHistory;
     bool isRunning = true;

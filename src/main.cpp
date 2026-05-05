@@ -29,8 +29,8 @@
 
 
 // Constantes
-const size_t BLOQUE_3S = 16000 * 4;
-const size_t UMBRAL_LATENCIA = 16000 * 10;
+const size_t BLOQUE_4S = 16000 * 4;
+const size_t UMBRAL_LATENCIA = 16000 * 10; //Dejamos un maximo de 2,5 bloques de margen
 const int MAX_CONTEXTO = 500;
 
 struct RadioState {
@@ -55,6 +55,7 @@ QRZClient qrz; // Cliente global
 // UTILITY FUNCTIONS
 // ============================================================================
 
+//Comprueba si el texto obtenido tiene alucionaciones mas observadas durantes las pruebas. (Sobre todo salen en silencios)
 bool esAlucinacion(std::string texto) {
     // Convertimos a minúsculas para comparar fácil
     std::transform(texto.begin(), texto.end(), texto.begin(), ::tolower);
@@ -74,6 +75,7 @@ bool esAlucinacion(std::string texto) {
     return false;
 }
 
+//Devuelve la fecha en el formato necesario para el informe ADIF
 std::string getADIFDate() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -82,6 +84,7 @@ std::string getADIFDate() {
     return ss.str();
 }
 
+//Devuelve la hora en el formato necesario para el informe ADIF
 std::string getADIFTime() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -90,7 +93,7 @@ std::string getADIFTime() {
     return ss.str();
 }
 
-
+//Actualizacion de los ajustes persisntentes del programa en el fichero .env
 void updateEnvFile(const std::string& user, const std::string& pass, const std::string& call) {
     std::ofstream envFile(".env", std::ios::trunc);
     if (envFile.is_open()) {
@@ -104,7 +107,7 @@ void updateEnvFile(const std::string& user, const std::string& pass, const std::
         _putenv_s("MY_CALLSIGN", call.c_str());
     }
 }
-
+//Carga el fichero .env
 void loadEnv(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) return;
@@ -122,6 +125,7 @@ void loadEnv(const std::string& path) {
     file.close();
 }
 
+//Obtiene los valores de los ajustes del fichero
 void loadPersistentSettings() {
     char* u = nullptr; char* p = nullptr; char* c = nullptr; size_t sz = 0;
     _dupenv_s(&u, &sz, "QRZ_USER");
@@ -153,7 +157,7 @@ std::string getTimestamp() {
     ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
     return ss.str();
 }
-
+//Inicializacion del sistema 
 int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance) {
     if (!trans.init("models/ggml-small.bin")) return 1;
     if (!audio.start()) return 1;
@@ -178,11 +182,13 @@ int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance)
     return 0;
 }
 
+//Inicializacion del los endpoints para el cliente web
 void web_init() {
     std::thread serverThread([]() {
         CoInitialize(NULL);
         httplib::Server svr;
-
+	//=====================================Endponts que atienenden peticiones de la interfaz web================================
+		//================ Rellena el fichero ADIF =============================
         svr.Get("/api/report", [](const httplib::Request&, httplib::Response& res) {
             std::stringstream adif;
             {
@@ -206,7 +212,7 @@ void web_init() {
             res.set_content(adif.str(), "text/plain");
             res.set_header("Content-Disposition", "attachment; filename=logbook_radio.adi");
         });
-
+//====================== Devulve la informacion acutal del sistema, ultima transcripción, contactos y estado del motos de procesado =================================
         svr.Get("/api/status", [](const httplib::Request&, httplib::Response& res) {
             nlohmann::json j;
             {
@@ -218,7 +224,7 @@ void web_init() {
             }
             res.set_content(j.dump(), "application/json");
         });
-
+//=================================== Devuelve los ajustes actuales del sistema ============================================
         svr.Get("/api/settings", [](const httplib::Request&, httplib::Response& res) {
             nlohmann::json j;
             {
@@ -229,7 +235,7 @@ void web_init() {
             }
             res.set_content(j.dump(), "application/json");
         });
-
+//=============================== Actualiza los ajustes del sistema =========================================
         svr.Post("/api/settings", [](const httplib::Request& req, httplib::Response& res) {
             try {
                 auto j = nlohmann::json::parse(req.body);
@@ -260,7 +266,7 @@ void web_init() {
                 }
             } catch (...) { res.status = 400; }
         });
-
+//====================== Activa/Desactiva la transcripcion de audio =====================================
         svr.Post("/api/toggle", [](const httplib::Request&, httplib::Response& res) {
             std::lock_guard<std::mutex> lock_toggle(globalState.mtx);
             if (globalState.needsConfig) {
@@ -272,12 +278,12 @@ void web_init() {
             std::cout << "[SYSTEM] Motor de radio: " << (globalState.isProcessing ? "ACTIVO" : "PAUSADO") << std::endl;
             res.set_content(globalState.isProcessing ? "true" : "false", "text/plain");
         });
-
+//========================= Apaga el sistema completo ===================================================
         svr.Post("/api/shutdown", [](const httplib::Request&, httplib::Response& res) {
             { std::lock_guard<std::mutex> lock_stop(globalState.mtx); globalState.running = false; }
             res.set_content("OK", "text/plain");
         });
-
+//=========================== Genera el audio apartir del texto recibido (TTS) =============================
         svr.Post("/api/transmit", [](const httplib::Request& req, httplib::Response& res) {
             try {
                 auto j = nlohmann::json::parse(req.body);
@@ -290,6 +296,7 @@ void web_init() {
             }
             catch (...) { res.status = 400; }
             });
+//============================== Devuelve los dispositivos de audio disponibles ==============================
         svr.Get("/api/devices", [](const httplib::Request&, httplib::Response& res) {
             auto devices = tts.getOutputDevices();
             std::cout << "[DEBUG] Web solicitó dispositivos. Encontrados: " << devices.size() << std::endl;
@@ -300,13 +307,13 @@ void web_init() {
             }
             res.set_content(j.dump(), "application/json");
             });
-
+//============================= Permite anyadir un contacto de forma manual al registro =========================
         svr.Post("/api/lookup", [](const httplib::Request& req, httplib::Response& res) {
             try {
                 auto j = nlohmann::json::parse(req.body);
                 std::string call = j.at("call").get<std::string>();
 
-                // Realizamos la consulta real a QRZ usando el cliente existente
+                // Realizamos la consulta a QRZ
                 OperatorData op = qrz.lookup(call);
 
                 if (op.found) {
@@ -337,6 +344,7 @@ void web_init() {
     serverThread.detach();
 }
 
+//=================================== Inicial el servidor web y lanza una ventana en el navegador predeterminado =========================================
 void startFrontend() {
     std::cout << "[*] Iniciando Nginx..." << std::endl;
     // Terminamos cualquier instancia previa que se haya quedado colgada
@@ -399,13 +407,16 @@ int main() {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
-
-        if (audio.getQueuedSamplesCount() < BLOQUE_3S) {
+		int sampleCount=audio.getQueuedSamplesCount();
+        if (sampleCount < BLOQUE_4S) { //Bloque demasiado pequeño para procesar
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
-
-        std::vector<float> pcmData = audio.getSamples(BLOQUE_3S);
+		if(sampleCount >=UMBRAL_LATENCIA){ //Demasiado grande, resincronizamos los punteros
+			audio.discardOldAudio(BLOQUE_4S);
+		}
+		
+        std::vector<float> pcmData = audio.getSamples(BLOQUE_4S);
         std::string textoActual = transcriber.transcribe(pcmData);
 
        

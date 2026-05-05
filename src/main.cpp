@@ -59,13 +59,13 @@ bool esAlucinacion(std::string texto) {
     // Convertimos a minúsculas para comparar fácil
     std::transform(texto.begin(), texto.end(), texto.begin(), ::tolower);
 
-    const std::vector<std::string> blacklist = {
+    const std::vector<std::string> blacklist = { //Alucionanciones mas observadas en las pruebas del modelo
         "and the rest of the world",
         "thank you for watching",
         "subtitles by",
         "watching!",
         "please subscribe",
-        "and zero ventura" // He visto que te sale algo parecido
+        "and zero ventura" 
     };
 
     for (const auto& f : blacklist) {

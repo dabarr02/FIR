@@ -38,7 +38,7 @@ const int MAX_CONTEXTO = 500;
 
 TTSManager tts;
 RadioState globalState;
-QRZClient qrz; // Cliente global
+QRZClient qrz; 
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -157,7 +157,6 @@ int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance)
     }
     return 0;
 }
-
 
 //=================================== Inicial el servidor web y lanza una ventana en el navegador predeterminado =========================================
 void startFrontend() {

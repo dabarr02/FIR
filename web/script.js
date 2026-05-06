@@ -57,7 +57,7 @@ function renderContacts(contacts) {
                     <a href="${qrzLink}" target="_blank" class="callsign-link">
                         <strong class="text-warning fs-5">${c.call}</strong>
                     </a>
-                    <small class="text-muted">${new Date().toLocaleTimeString()}</small>
+                    <small class="text-muted">${c.time ? `${c.time.slice(0,2)}:${c.time.slice(2,4)}:${c.time.slice(4,6)}` : ""}</small>
                 </div>
                 <div class="small">${c.name}</div>
                 <div class="text-muted extra-small" style="font-size: 0.75rem">${c.loc}</div>

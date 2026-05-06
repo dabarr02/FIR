@@ -12,6 +12,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 # 2. INCLUSIONES
 include_directories(include)
 include_directories(third_party/portaudio/include)
+include_directories(third_party/whisper/include)
 
 # 3. EJECUTABLE
 add_executable(RadioAccessTFG 
@@ -21,6 +22,7 @@ add_executable(RadioAccessTFG
     src/CallsignParser.cpp
     src/QRZClient.cpp
     src/TTSManager.cpp
+    src/WebHandlers.cpp
 )
 
 # 4. ENLACE (Linking)

@@ -26,6 +26,8 @@
 #include "CallsignParser.hpp"
 #include "QRZClient.hpp"
 #include "TTSManager.hpp"
+#include "RadioState.hpp"
+#include "WebHandlers.hpp"
 
 
 // Constantes
@@ -33,19 +35,6 @@ const size_t BLOQUE_4S = 16000 * 4;
 const size_t UMBRAL_LATENCIA = 16000 * 10; //Dejamos un maximo de 2,5 bloques de margen
 const int MAX_CONTEXTO = 500;
 
-struct RadioState {
-    std::string lastTranscription;
-    std::vector<nlohmann::json> validatedContacts;
-    bool isProcessing = false;
-    bool running = true;
-    bool needsConfig = true;
-    std::mutex mtx;
-
-    std::string qrzUser;
-    std::string qrzPass;
-    std::string myCallsign;
-    std::string currentBand = "2M";
-};
 
 TTSManager tts;
 RadioState globalState;
@@ -75,38 +64,6 @@ bool esAlucinacion(std::string texto) {
     return false;
 }
 
-//Devuelve la fecha en el formato necesario para el informe ADIF
-std::string getADIFDate() {
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d");
-    return ss.str();
-}
-
-//Devuelve la hora en el formato necesario para el informe ADIF
-std::string getADIFTime() {
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&in_time_t), "%H%M%S");
-    return ss.str();
-}
-
-//Actualizacion de los ajustes persisntentes del programa en el fichero .env
-void updateEnvFile(const std::string& user, const std::string& pass, const std::string& call) {
-    std::ofstream envFile(".env", std::ios::trunc);
-    if (envFile.is_open()) {
-        envFile << "QRZ_USER=" << user << "\n";
-        envFile << "QRZ_PASS=" << pass << "\n";
-        envFile << "MY_CALLSIGN=" << call << "\n";
-        envFile.close();
-
-        _putenv_s("QRZ_USER", user.c_str());
-        _putenv_s("QRZ_PASS", pass.c_str());
-        _putenv_s("MY_CALLSIGN", call.c_str());
-    }
-}
 //Carga el fichero .env
 void loadEnv(const std::string& path) {
     std::ifstream file(path);
@@ -157,6 +114,25 @@ std::string getTimestamp() {
     ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
     return ss.str();
 }
+
+//Devuelve la fecha en el formato necesario para el informe ADIF
+std::string getADIFDate() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d");
+    return ss.str();
+}
+
+//Devuelve la hora en el formato necesario para el informe ADIF
+std::string getADIFTime() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&in_time_t), "%H%M%S");
+    return ss.str();
+}
+
 //Inicializacion del sistema 
 int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance) {
     if (!trans.init("models/ggml-small.bin")) return 1;
@@ -182,167 +158,6 @@ int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance)
     return 0;
 }
 
-//Inicializacion del los endpoints para el cliente web
-void web_init() {
-    std::thread serverThread([]() {
-        CoInitialize(NULL);
-        httplib::Server svr;
-	//=====================================Endponts que atienenden peticiones de la interfaz web================================
-		//================ Rellena el fichero ADIF =============================
-        svr.Get("/api/report", [](const httplib::Request&, httplib::Response& res) {
-            std::stringstream adif;
-            {
-                std::lock_guard<std::mutex> lock_report(globalState.mtx);
-                adif << "ADIF Export from RadioAccess\n<ADIF_VER:5>3.1.4\n<PROGRAMID:3>FIR\n";
-                adif << "<STATION_CALLSIGN:" << globalState.myCallsign.length() << ">" << globalState.myCallsign << "\n<EOH>\n\n";
-
-                for (const auto& c : globalState.validatedContacts) {
-                    std::string call = c["call"], name = c["name"], loc = c["loc"];
-                    std::string date = c["date"], time = c["time"]; 
-
-                    adif << "<CALL:" << call.length() << ">" << call
-                        << " <QSO_DATE:" << date.length() << ">" << date
-                        << " <TIME_ON:" << time.length() << ">" << time
-                        << " <NAME:" << name.length() << ">" << name
-                        << " <QTH:" << loc.length() << ">" << loc
-                        << " <BAND:" << globalState.currentBand.length() << ">" << globalState.currentBand
-                        << " <MODE:2>FM <EOR>\n";
-                }
-            }
-            res.set_content(adif.str(), "text/plain");
-            res.set_header("Content-Disposition", "attachment; filename=logbook_radio.adi");
-        });
-//====================== Devulve la informacion acutal del sistema, ultima transcripción, contactos y estado del motos de procesado =================================
-        svr.Get("/api/status", [](const httplib::Request&, httplib::Response& res) {
-            nlohmann::json j;
-            {
-                std::lock_guard<std::mutex> lock_status(globalState.mtx);
-                j["transcription"] = globalState.lastTranscription;
-                j["contacts"] = globalState.validatedContacts;
-                j["isProcessing"] = globalState.isProcessing;
-                j["needsConfig"] = globalState.needsConfig;
-            }
-            res.set_content(j.dump(), "application/json");
-        });
-//=================================== Devuelve los ajustes actuales del sistema ============================================
-        svr.Get("/api/settings", [](const httplib::Request&, httplib::Response& res) {
-            nlohmann::json j;
-            {
-                std::lock_guard<std::mutex> lock_settings(globalState.mtx);
-                j["user"] = globalState.qrzUser; j["pass"] = globalState.qrzPass;
-                j["myCall"] = globalState.myCallsign; j["band"] = globalState.currentBand;
-                j["needsConfig"] = globalState.needsConfig;
-            }
-            res.set_content(j.dump(), "application/json");
-        });
-//=============================== Actualiza los ajustes del sistema =========================================
-        svr.Post("/api/settings", [](const httplib::Request& req, httplib::Response& res) {
-            try {
-                auto j = nlohmann::json::parse(req.body);
-                std::string u = j.at("user"), p = j.at("pass"), c = j.at("myCall"), b = j.at("band");
-
-                if (j.contains("deviceId")) {
-                    int devId = j.at("deviceId").get<int>();
-                    tts.setOutputDevice(devId);
-                    std::cout << "[SYSTEM] Salida de audio cambiada al dispositivo ID: " << devId << std::endl;
-                }
-                
-                qrz.init(u, p);
-                if (qrz.login()) {
-                    {
-                        std::lock_guard<std::mutex> lock_save(globalState.mtx);
-                        globalState.qrzUser = u; 
-                        globalState.qrzPass = p;
-                        globalState.myCallsign = c; 
-                        globalState.currentBand = b;
-                        globalState.needsConfig = false; 
-                        
-                    }
-                    updateEnvFile(u, p, c);
-                    res.set_content("{\"status\":\"ok\"}", "application/json");
-                } else {
-                    res.status = 401;
-                    res.set_content("{\"error\":\"QRZ Login failed\"}", "application/json");
-                }
-            } catch (...) { res.status = 400; }
-        });
-//====================== Activa/Desactiva la transcripcion de audio =====================================
-        svr.Post("/api/toggle", [](const httplib::Request&, httplib::Response& res) {
-            std::lock_guard<std::mutex> lock_toggle(globalState.mtx);
-            if (globalState.needsConfig) {
-                res.status = 403;
-                res.set_content("config_required", "text/plain");
-                return;
-            }
-            globalState.isProcessing = !globalState.isProcessing;
-            std::cout << "[SYSTEM] Motor de radio: " << (globalState.isProcessing ? "ACTIVO" : "PAUSADO") << std::endl;
-            res.set_content(globalState.isProcessing ? "true" : "false", "text/plain");
-        });
-//========================= Apaga el sistema completo ===================================================
-        svr.Post("/api/shutdown", [](const httplib::Request&, httplib::Response& res) {
-            { std::lock_guard<std::mutex> lock_stop(globalState.mtx); globalState.running = false; }
-            res.set_content("OK", "text/plain");
-        });
-//=========================== Genera el audio apartir del texto recibido (TTS) =============================
-        svr.Post("/api/transmit", [](const httplib::Request& req, httplib::Response& res) {
-            try {
-                auto j = nlohmann::json::parse(req.body);
-                std::string textoParaHablar = j.at("text").get<std::string>();
-
-                std::cout << "[TX] Sintetizando: " << textoParaHablar << std::endl;
-                tts.speak(textoParaHablar);
-
-                res.set_content("{\"status\":\"ok\"}", "application/json");
-            }
-            catch (...) { res.status = 400; }
-            });
-//============================== Devuelve los dispositivos de audio disponibles ==============================
-        svr.Get("/api/devices", [](const httplib::Request&, httplib::Response& res) {
-            auto devices = tts.getOutputDevices();
-            std::cout << "[DEBUG] Web solicitó dispositivos. Encontrados: " << devices.size() << std::endl;
-            nlohmann::json j = nlohmann::json::array();
-            for (const auto& d : devices) {
-                j.push_back({ {"id", d.id}, {"name", d.name} });
-				std::cout << "[DEBUG] Dispositivo encontrado: ID=" << d.id << ", Name=\"" << d.name << "\"" << std::endl;
-            }
-            res.set_content(j.dump(), "application/json");
-            });
-//============================= Permite anyadir un contacto de forma manual al registro =========================
-        svr.Post("/api/lookup", [](const httplib::Request& req, httplib::Response& res) {
-            try {
-                auto j = nlohmann::json::parse(req.body);
-                std::string call = j.at("call").get<std::string>();
-
-                // Realizamos la consulta a QRZ
-                OperatorData op = qrz.lookup(call);
-
-                if (op.found) {
-                    std::lock_guard<std::mutex> lock(globalState.mtx);
-
-                    // Añadimos al historial para que salga en el ADIF
-                    globalState.validatedContacts.push_back({
-                        {"call", op.callsign},
-                        {"name", op.name},
-                        {"loc", op.city + ", " + op.country},
-                        { "date", getADIFDate() }, 
-                        {"time", getADIFTime()}  
-                        });
-
-                    res.set_content("{\"status\":\"ok\"}", "application/json");
-                }
-                else {
-                    res.status = 404; // No encontrado en QRZ
-                }
-            }
-            catch (...) {
-                res.status = 400;
-            }
-            });
-
-        svr.listen("0.0.0.0", 8080);
-    });
-    serverThread.detach();
-}
 
 //=================================== Inicial el servidor web y lanza una ventana en el navegador predeterminado =========================================
 void startFrontend() {
@@ -384,7 +199,10 @@ int main() {
         system("taskkill /f /im nginx.exe >nul 2>&1");
         return 1;
     }
-    web_init();
+    // Arranca el servidor web desde la librería de handlers
+    WebHandlers handlers(globalState, tts, qrz);
+    handlers.start_server_detached(8080);
+        
 
     startFrontend();
 

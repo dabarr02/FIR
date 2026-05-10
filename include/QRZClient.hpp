@@ -14,10 +14,17 @@ public:
     QRZClient();
     void init(const std::string& user, const std::string& pass);
 
-    // Paso 1: Autenticarse y obtener la Session Key
+    /***
+     * Autentica al usuario y obtiene la clave de sesi贸n
+     * @return true si la autenticaci贸n es exitosa, false en caso contrario
+     */
     bool login();
 
-    // Paso 2: Consultar un indicativo
+    /***
+     * Busca un indicativo en la base de datos de QRZ
+     * @param callsign Indicativo a buscar
+     * @return Datos del operador si se encuentra, con el campo 'found' a false si no se encuentra o hay error
+     */
     OperatorData lookup(const std::string& callsign);
 
 private:
@@ -25,6 +32,10 @@ private:
     std::string password;
     std::string sessionKey;
 
-    // Funci髇 auxiliar para hacer las peticiones HTTP
+    /***
+     * Funci贸n auxiliar para hacer las peticiones HTTP
+     * @param url URL de la petici贸n
+     * @return Respuesta de la petici贸n
+     */
     std::string httpRequest(const std::string& url);
 };

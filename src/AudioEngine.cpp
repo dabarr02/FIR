@@ -25,7 +25,6 @@ int AudioEngine::paCallback(const void *inputBuffer, void *outputBuffer,
         
         for (unsigned int i = 0; i < framesPerBuffer; i++) {
             engine->ringBuffer[currentWrite] = in[i];
-            // Aritmética modular para circularidad
             currentWrite = (currentWrite + 1) % engine->capacity;
         }
         
@@ -35,22 +34,6 @@ int AudioEngine::paCallback(const void *inputBuffer, void *outputBuffer,
     return paContinue;
 }
 
-// Función para que el "Background" lea los datos acumulados
-std::vector<float> AudioEngine::getAvailableSamples() {
-    size_t currentWrite = writeIdx.load(std::memory_order_acquire);
-    size_t currentRead = readIdx.load(std::memory_order_relaxed);
-    
-    std::vector<float> samples;
-    
-    // Calculamos cuántas muestras hay nuevas desde la última lectura
-    while (currentRead != currentWrite) {
-        samples.push_back(ringBuffer[currentRead]);
-        currentRead = (currentRead + 1) % capacity;
-    }
-    
-    readIdx.store(currentRead, std::memory_order_relaxed);
-    return samples;
-}
 
 size_t AudioEngine::getQueuedSamplesCount() {
     size_t w = writeIdx.load(std::memory_order_acquire);
@@ -83,7 +66,6 @@ std::vector<float> AudioEngine::getSamples(size_t count) {
     return samples;
 }
 
-// Salta audio antiguo para volver al tiempo real
 void AudioEngine::discardOldAudio(size_t keepLastSamples) {
     size_t currentWrite = writeIdx.load(std::memory_order_acquire);
 

@@ -8,11 +8,16 @@ class CallsignParser {
 public:
     CallsignParser();
 
-    // Procesa el texto bruto y devuelve el indicativo si encuentra uno válido
-    std::string parse(const std::string& rawText);
+    /***
+     * Parsea el texto transcrito para extraer indicativos de radioaficionado. Devuelve un vector con todos los indicativos detectados.
+     * @param rawText Texto transcrito sin procesar
+     * @return Vector con los indicativos detectados en el texto
+     */
 	std::vector<std::string> parseAll(const std::string& rawText);
 
-    // Limpia la memoria del último indicativo (útil tras silencios)
+    /***
+     * Reinicia el parser, limpiando el indicativo detectado
+     */
     void reset();
 
 private:

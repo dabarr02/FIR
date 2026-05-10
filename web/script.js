@@ -5,8 +5,6 @@ async function fetchData() {
     try {
         const res = await fetch('/api/status');
         const data = await res.json();
-
-        // --- Lógica del Botón de Pausa ---
         const btn = document.getElementById('toggleBtn');
         const sText = document.getElementById('statusText');
         const sDot = document.getElementById('statusDot');
@@ -22,10 +20,10 @@ async function fetchData() {
             btn.className = "btn btn-sm btn-success me-3 fw-bold";
             sText.innerText = "Motor Pausado";
             sText.className = "small text-uppercase text-danger";
-            sDot.style.backgroundColor = "#e74c3c"; // Rojo
+            sDot.style.backgroundColor = "#e74c3c"; 
         }
 
-        // 2. Actualizar Transcripción (lo que ya tenías)
+        
         const tBox = document.getElementById('transcription');
         if (data.transcription && data.transcription !== lastText) {
             tBox.innerText = data.transcription;
@@ -33,7 +31,7 @@ async function fetchData() {
             lastText = data.transcription;
         }
 
-        // 3. Actualizar Contactos (lo que ya tenías)
+        
         if (data.contacts.length !== contactCount) {
             renderContacts(data.contacts);
             contactCount = data.contacts.length;
@@ -72,7 +70,7 @@ async function sendTX() {
     
     if (!input.value) return;
     
-    // Feedback visual: desactivamos el botón un segundo
+
     btn.disabled = true;
     btn.innerText = "ENVIANDO...";
 
@@ -83,11 +81,11 @@ async function sendTX() {
             body: JSON.stringify({ text: input.value })
         });
         
-        input.value = ""; // Limpiamos
+        input.value = ""; 
         btn.innerText = "ENVIADO";
         btn.classList.replace('btn-warning', 'btn-success');
         
-        // Volvemos al estado normal tras 1 segundo
+     
         setTimeout(() => {
             btn.disabled = false;
             btn.innerText = "ENVIAR";
@@ -154,7 +152,7 @@ async function shutdownSystem() {
             // Avisamos al backend
             await fetch('/api/shutdown', { method: 'POST' });
 
-            // Mostramos una pantalla de despedida limpia
+            // Mostramos una pantalla de despedida
             document.body.innerHTML = `
                 <div class="container vh-100 d-flex align-items-center justify-content-center">
                     <div class="text-center p-5 bg-dark rounded border border-secondary shadow-lg">
@@ -176,7 +174,7 @@ async function loadAudioDevices() {
         const res = await fetch('/api/devices');
         const devices = await res.json();
         const select = document.getElementById('cfgAudioOut');
-        select.innerHTML = ""; // Limpiar
+        select.innerHTML = ""; 
         
         devices.forEach(d => {
             select.innerHTML += `<option value="${d.id}">${d.name}</option>`;
@@ -253,5 +251,5 @@ window.onload = async () => {
     }
 };
 
-// Ejecutar cada 400ms (balance perfecto entre fluidez y carga)
+// Ejecutar cada 400ms
 setInterval(fetchData, 400);

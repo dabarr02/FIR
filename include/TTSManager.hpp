@@ -17,10 +17,22 @@ public:
     ~TTSManager();
 
     bool init();
+    /***
+     * Lee en voz alta el texto proporcionado
+     * @param text Texto a leer
+     */
     void speak(const std::string& text);
 
-    // Para el selector de la web
+    /***
+     * Obtiene la lista de dispositivos de salida disponibles
+     * @return Vector con los dispositivos de salida
+     */
     std::vector<AudioDevice> getOutputDevices();
+    /***
+     * Establece el dispositivo de salida actual
+     * @param deviceId ID del dispositivo de salida
+     * @return true si se estableció correctamente, false en caso contrario
+     */
     bool setOutputDevice(int deviceId);
 
 private:

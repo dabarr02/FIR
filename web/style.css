@@ -11,9 +11,9 @@ body {
     color: var(--text-main);
     font-family: 'Segoe UI', system-ui, sans-serif;
 }
-/* Sobrescribimos el gris de Bootstrap para nuestro tema oscuro */
+/* Sobrescribimos el gris de Bootstrap tema oscuro */
 .text-muted {
-    color: #8b949e !important; /* Un gris claro tipo GitHub Dark */
+    color: #8b949e !important; 
 }
 
 /* Caja de Transcripción estilo Terminal */
@@ -80,7 +80,7 @@ body {
 }
 
 .ls-wide {
-    color: #c9d1d9 !important; /* Casi blanco, pero con un toque gris */
+    color: #c9d1d9 !important; 
     letter-spacing: 1.5px;
     font-weight: 600;
 }
@@ -88,10 +88,10 @@ body {
     font-size: 0.75rem;
 }
 .extra-small.text-muted {
-    color: #768390 !important; /* Un gris intermedio para que no distraiga pero se lea */
+    color: #768390 !important; 
 }
 
-/* Animacion opcional para el boton de apagado al pasar el raton */
+
 .btn-outline-danger:hover {
     background-color: #dc3545 !important;
     color: white !important;

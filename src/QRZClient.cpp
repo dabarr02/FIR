@@ -18,15 +18,22 @@ void QRZClient::init(const std::string& user, const std::string& pass)
 QRZClient::QRZClient() {}
 
 std::string QRZClient::httpRequest(const std::string& url) {
+    // Inicializamos una sesi√≥n de curl
     CURL* curl = curl_easy_init();
     std::string response;
     if (curl) {
+        // Establecemos la URL a la que hacer la petici√≥n
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        // Configuramos la funci√≥n callback para escribir la respuesta
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        // Pasamos el string donde se almacenar√° la respuesta
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        // Ejecutamos la petici√≥n HTTP
         curl_easy_perform(curl);
+        // Liberamos los recursos de curl
         curl_easy_cleanup(curl);
     }
+    // Devolvemos la respuesta recibida
     return response;
 }
 
@@ -34,12 +41,11 @@ bool QRZClient::login() {
     CURL* curl = curl_easy_init();
     if (!curl) return false;
 
-    // Escapamos los caracteres especiales del usuario y la contraseÒa
+    // Escapamos los caracteres especiales del usuario y la contrasenya
     char* encodedUser = curl_easy_escape(curl, username.c_str(), 0);
     char* encodedPass = curl_easy_escape(curl, password.c_str(), 0);
 
     // Construimos la URL con los datos seguros
-    // Nota: Usamos '&' o ';' seg˙n pida la API, pero los valores van protegidos
     std::string url = "https://xmldata.qrz.com/xml/current/?username=";
     url += encodedUser;
     url += ";password=";
@@ -57,7 +63,6 @@ bool QRZClient::login() {
         pugi::xml_node session = doc.child("QRZDatabase").child("Session");
         sessionKey = session.child_value("Key");
 
-        // Si hay error, QRZ lo pone aquÌ
         std::string error = session.child_value("Error");
         if (!error.empty()) {
             std::cout << "[!] Error de la API de QRZ: " << error << std::endl;

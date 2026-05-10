@@ -161,17 +161,13 @@ int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance)
 //=================================== Inicial el servidor web y lanza una ventana en el navegador predeterminado =========================================
 void startFrontend() {
     std::cout << "[*] Iniciando Nginx..." << std::endl;
-    // Terminamos cualquier instancia previa que se haya quedado colgada
+    
     system("taskkill /f /im nginx.exe >nul 2>&1");
 
-    // Construir la ruta al ejecutable de nginx y su directorio base
-    // Asumiendo que el .exe está en "build/Release/" o "build/Debug/", 
-    // necesitamos retroceder 2 carpetas.
     std::string nginxExePath = "..\\..\\tools\\nginx\\nginx.exe";
     std::string nginxDirArgs = "-p ..\\..\\tools\\nginx";
 
-    // Usamos ShellExecute para lanzar nginx en modo oculto (SW_HIDE)
-    // sin bloquear el flujo principal de nuestro C++
+    
     HINSTANCE hInst = ShellExecuteA(NULL, "open", nginxExePath.c_str(), nginxDirArgs.c_str(), NULL, SW_HIDE);
 
     if ((reinterpret_cast<INT_PTR>(hInst)) <= 32) {

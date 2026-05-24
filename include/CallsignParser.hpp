@@ -15,6 +15,8 @@ public:
      */
 	std::vector<std::string> parseAll(const std::string& rawText);
 
+   
+
     /***
      * Reinicia el parser, limpiando el indicativo detectado
      */

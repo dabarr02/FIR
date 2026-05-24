@@ -6,6 +6,7 @@ struct OperatorData {
     std::string country;
     std::string city;
     bool found = false;
+	bool qrz_valid = false;
 };
 
 class QRZClient {

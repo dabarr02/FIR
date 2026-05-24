@@ -75,6 +75,7 @@ bool QRZClient::login() {
 
 OperatorData QRZClient::lookup(const std::string& callsign) {
     OperatorData data;
+    data.qrz_valid = false;
     if (sessionKey.empty()) return data;
 
     std::string url = "https://xmldata.qrz.com/xml/current/?s=" + sessionKey + ";callsign=" + callsign;
@@ -89,6 +90,7 @@ OperatorData QRZClient::lookup(const std::string& callsign) {
             data.country = callNode.child_value("country");
             data.city = callNode.child_value("addr2");
             data.found = true;
+            data.qrz_valid = true;
         }
     }
     return data;

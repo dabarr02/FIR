@@ -25,15 +25,15 @@
         </summary>
         <div class="card-body row g-3">
             <div class="col-md-3">
-                <label class="small text-muted">Usuario QRZ</label>
+                <label class="small text-muted">Usuario QRZ (Opcional)</label>
                 <input type="text" id="cfgUser" class="form-control form-control-sm bg-dark text-white border-secondary">
             </div>
             <div class="col-md-3">
-                <label class="small text-muted">Contraseña QRZ</label>
+                <label class="small text-muted">Contraseña QRZ (Opcional)</label>
                 <input type="password" id="cfgPass" class="form-control form-control-sm bg-dark text-white border-secondary">
             </div>
             <div class="col-md-2">
-                <label class="small text-muted">Mi Indicativo</label>
+                <label class="small text-muted">Mi Indicativo *</label>
                 <input type="text" id="cfgMyCall" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="EA4IAX">
             </div>
             <div class="col-md-2">
@@ -42,6 +42,13 @@
                     <option value="2M">2 Meters</option>
                     <option value="40M">40 Meters</option>
                     <option value="20M">20 Meters</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted">Modo</label>
+                <select id="cfgMode" class="form-select form-select-sm bg-dark text-white border-secondary">
+                    <option value="SSB">SSB</option>
+                    <option value="FM">FM</option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -78,7 +85,7 @@
                     <button class="btn btn-info fw-bold" onclick="addManualCallsign()">VALIDAR</button>
                 </div>
             </div>
-            <h5 class="mb-3 text-uppercase small ls-wide">Contactos QRZ Validados</h5>
+            <h5 class="mb-3 text-uppercase small ls-wide">Contactos Registrados</h5>
             
             <div id="contactsList" style="max-height: 500px; overflow-y: auto;">
             </div>

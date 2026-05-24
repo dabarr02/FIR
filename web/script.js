@@ -23,7 +23,6 @@ async function fetchData() {
             sDot.style.backgroundColor = "#e74c3c"; 
         }
 
-        
         const tBox = document.getElementById('transcription');
         if (data.transcription && data.transcription !== lastText) {
             tBox.innerText = data.transcription;
@@ -31,7 +30,6 @@ async function fetchData() {
             lastText = data.transcription;
         }
 
-        
         if (data.contacts.length !== contactCount) {
             renderContacts(data.contacts);
             contactCount = data.contacts.length;
@@ -45,20 +43,30 @@ function renderContacts(contacts) {
     const list = document.getElementById('contactsList');
     list.innerHTML = ""; 
     
+    
     [...contacts].reverse().forEach(c => {
-        // Creamos el enlace dinámico a QRZ
         const qrzLink = `https://www.qrz.com/db/${c.call}`;
+        
+        
+        const badgeColor = c.qrz_valid ? "bg-success" : "bg-info text-dark";
+        const badgeText = c.qrz_valid ? "QRZ VERIFICADO" : "UIT RECONOCIDO";
 
         list.innerHTML += `
-            <div class="contact-card p-3 shadow-sm">
-                <div class="d-flex justify-content-between">
-                    <a href="${qrzLink}" target="_blank" class="callsign-link">
+            <div class="contact-card p-3 shadow-sm mb-2 border ${c.qrz_valid ? 'border-success' : 'border-info'}" style="background-color: #1a1d20; border-radius: 6px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="${qrzLink}" target="_blank" class="text-decoration-none">
                         <strong class="text-warning fs-5">${c.call}</strong>
                     </a>
-                    <small class="text-muted">${c.time ? `${c.time.slice(0,2)}:${c.time.slice(2,4)}:${c.time.slice(4,6)}` : ""}</small>
+                    <span class="badge ${badgeColor} extra-small" style="font-size: 0.65rem;">${badgeText}</span>
                 </div>
-                <div class="small">${c.name}</div>
-                <div class="text-muted extra-small" style="font-size: 0.75rem">${c.loc}</div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="small text-white">${c.name}</div>
+                    <span class="badge bg-secondary extra-small" style="font-size: 0.7rem;">${c.mode || 'SSB'}</span>
+                </div>
+                <div class="text-muted extra-small mt-1" style="font-size: 0.75rem">${c.loc}</div>
+                <div class="text-end extra-small text-muted mt-1" style="font-size: 0.65rem;">
+                    ${c.date || ""} | ${c.time ? `${c.time.slice(0,2)}:${c.time.slice(2,4)}:${c.time.slice(4,6)}` : ""}
+                </div>
             </div>
         `;
     });
@@ -67,9 +75,7 @@ function renderContacts(contacts) {
 async function sendTX() {
     const input = document.getElementById('txInput');
     const btn = document.querySelector('button[onclick="sendTX()"]');
-    
     if (!input.value) return;
-    
 
     btn.disabled = true;
     btn.innerText = "ENVIANDO...";
@@ -82,16 +88,14 @@ async function sendTX() {
         });
         
         input.value = ""; 
-        btn.innerText = "ENVIADO";
+        btn.innerText = "ENVIAR";
         btn.classList.replace('btn-warning', 'btn-success');
         
-     
         setTimeout(() => {
             btn.disabled = false;
             btn.innerText = "ENVIAR";
             btn.classList.replace('btn-success', 'btn-warning');
         }, 1000);
-
     } catch (e) {
         btn.innerText = "ERROR";
         btn.classList.replace('btn-warning', 'btn-danger');
@@ -103,16 +107,12 @@ async function toggleEngine() {
         const res = await fetch('/api/toggle', { method: 'POST' });
         
         if (res.status === 403) {
-            // El servidor nos ha dicho que faltan credenciales
-            alert("⚠️ Configuración requerida: Por favor, introduce tus datos de QRZ antes de arrancar el motor.");
-            
-            // Abrimos automáticamente el panel de configuración para ayudar al usuario
+            alert("⚠️ Configuración requerida: Por favor, introduce tu indicativo en los ajustes antes de arrancar el motor.");
             const settingsPanel = document.querySelector('.station-settings');
             if (settingsPanel) settingsPanel.open = true;
             return;
         }
-
-        fetchData(); // Si todo va bien, actualizamos la interfaz
+        fetchData();
     } catch (e) {
         console.error("No se pudo conectar con el motor de radio.");
     }
@@ -121,10 +121,10 @@ async function toggleEngine() {
 async function addManualCallsign() {
     const input = document.getElementById('manualCallInput');
     const callsign = input.value.trim().toUpperCase();
-    
     if (!callsign) return;
 
     try {
+        // Delegación de la validación sintáctica y de prefijos al backend de C++
         const res = await fetch('/api/lookup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -132,11 +132,9 @@ async function addManualCallsign() {
         });
 
         if (res.ok) {
-            const data = await res.json();
-            input.value = ""; // Limpiar tras éxito
-            // La función fetchData() se encarga de refrescar la lista automáticamente
+            input.value = ""; // Limpiamos la caja de texto tras el éxito
         } else {
-            alert("El indicativo no existe en QRZ o el motor está pausado.");
+            alert("El indicativo no cumple la sintaxis internacional UIT ni figura en la base de datos local del motor.");
         }
     } catch (e) {
         console.error("Error en la validación manual");
@@ -144,15 +142,10 @@ async function addManualCallsign() {
 }
 
 async function shutdownSystem() {
-    // Pedimos confirmación para evitar desastres
     const confirmacion = confirm("⚠️ Vas a detener el motor de radio y cerrar Nginx. ¿Estás seguro?");
-
     if (confirmacion) {
         try {
-            // Avisamos al backend
             await fetch('/api/shutdown', { method: 'POST' });
-
-            // Mostramos una pantalla de despedida
             document.body.innerHTML = `
                 <div class="container vh-100 d-flex align-items-center justify-content-center">
                     <div class="text-center p-5 bg-dark rounded border border-secondary shadow-lg">
@@ -168,21 +161,17 @@ async function shutdownSystem() {
     }
 }
 
-
 async function loadAudioDevices() {
     try {
         const res = await fetch('/api/devices');
         const devices = await res.json();
         const select = document.getElementById('cfgAudioOut');
         select.innerHTML = ""; 
-        
         devices.forEach(d => {
             select.innerHTML += `<option value="${d.id}">${d.name}</option>`;
         });
     } catch (e) { console.error("Error cargando dispositivos de audio"); }
 }
-
-
 
 async function saveStationSettings() {
     const settings = {
@@ -190,8 +179,12 @@ async function saveStationSettings() {
         pass: document.getElementById('cfgPass').value,
         myCall: document.getElementById('cfgMyCall').value,
         band: document.getElementById('cfgBand').value,
-        deviceId: parseInt(document.getElementById('cfgAudioOut').value)
+        mode: document.getElementById('cfgMode').value,
     };
+    const audioVal = parseInt(document.getElementById('cfgAudioOut').value);
+    if (!isNaN(audioVal) && audioVal >= 0) {
+        settings.deviceId = audioVal;
+    }
 
     try {
         const res = await fetch('/api/settings', {
@@ -206,31 +199,23 @@ async function saveStationSettings() {
             if (settingsPanel) settingsPanel.open = false;
             return;
         }
-
-        if (res.status === 401) {
-            alert("Datos incorrectos. Revisa usuario y contraseña de QRZ.");
-        } else {
-            alert("No se pudo aplicar la configuración.");
-        }
+        alert("No se pudo aplicar la configuración.");
     } catch (e) {
         alert("Error al conectar con el motor.");
     }
 }
 
 function downloadReport() {
-    // Al llamar a esta URL, el navegador recibirá el "attachment" y empezará la descarga
     window.location.href = '/api/report';
 }
 
-
 document.getElementById('txInput').addEventListener('keydown', function(event) {
     if (event.key === 'Enter') {
-        event.preventDefault(); // Evita que el navegador haga cosas raras (como recargar)
+        event.preventDefault();
         sendTX();
     }
 });
 
-// Al cargar la página, recuperamos la configuración guardada
 window.onload = async () => {
     try {
         const res = await fetch('/api/settings');
@@ -241,15 +226,15 @@ window.onload = async () => {
         document.getElementById('cfgPass').value = data.pass || "";
         document.getElementById('cfgMyCall').value = data.myCall || "";
         document.getElementById('cfgBand').value = data.band || "2M";
+        document.getElementById('cfgMode').value = data.mode || "SSB";
         document.getElementById('cfgAudioOut').value = data.deviceId || -1;
 
         if (data.needsConfig) {
-            alert("⚠️ Configuración inicial requerida. Por favor, introduce tus datos de QRZ.");
+            alert("⚠️ Configuración inicial requerida. Por favor, introduce tu indicativo.");
         }
     } catch (e) {
         console.error("Error cargando ajustes iniciales");
     }
 };
 
-// Ejecutar cada 400ms
 setInterval(fetchData, 400);

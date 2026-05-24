@@ -1,6 +1,7 @@
 #include "CallsignParser.hpp"
 #include <sstream>
 #include <algorithm>
+#include <set>
 
 CallsignParser::CallsignParser() {
     // Inicializamos el diccionario OTAN/OACI
@@ -85,6 +86,120 @@ std::vector<std::string> CallsignParser::parseAll(const std::string& rawText) {
     }
 
     return candidates;
+}
+
+
+
+#include <set>
+
+bool validarIndicativoSintactico(const std::string& callsign, std::string& prefix, std::string& suffix) {
+    // Validación por longitudes estándar de la UIT
+    if (callsign.empty() || callsign.length() < 3 || callsign.length() > 10) return false;
+
+    // Analizar de atrás hacia adelante para localizar el primer dígito
+    auto it = std::find_if(callsign.rbegin(), callsign.rend(), [](unsigned char ch) {
+        return std::isdigit(ch);
+        });
+
+    // Si no contiene números
+    if (it == callsign.rend()) return false;
+
+    // Calcular la posición del dígito divisor
+    size_t digitIdx = std::distance(it, callsign.rend()) - 1;
+
+    //Separar el prefijo base del sufijo
+    std::string prefijoPuro = callsign.substr(0, digitIdx);
+    suffix = callsign.substr(digitIdx + 1);
+
+    // El prefijo previo al número debe tener obligatoriamente 1 o 2 caracteres
+    if (prefijoPuro.empty() || prefijoPuro.length() > 2) return false;
+
+    // Verificar que todos los caracteres sean alfanuméricos puros
+    for (char c : prefijoPuro) if (!std::isalnum(static_cast<unsigned char>(c))) return false;
+    for (char c : suffix) if (!std::isalnum(static_cast<unsigned char>(c))) return false;
+
+    // Reconstituimos el prefijo completo con su distrito
+    prefix = callsign.substr(0, digitIdx + 1);
+
+    
+    static const std::set<std::string> TABLA_PREFIJOS_UIT = {
+        // Europa Occidental y Mediterráneo
+        "EA", "EB", "EC", "ED", "EE", "EF", "EG", "EH", "AM", "AN", "AO", // España
+        "CT", "CQ", "CR", "CS", // Portugal
+        "F", "HW", "HX", "HY", "TH", "TO", "TP", "TV", "TX", // Francia
+        "I", "IK", "IZ", "IU", "IA", "IB", "ID", "IE", "IF", "IG", "IH", "II", "IO", "IP", "IQ", "IR", "IS", // Italia
+        "ON", "OR", "OS", "OT", // Bélgica
+        "PA", "PB", "PC", "PD", "PE", "PF", "PG", "PH", "PI", // Países Bajos
+        "HB", "HE", // Suiza
+        "LX", // Luxemburgo
+        "SV", "SW", "SX", "SY", // Grecia
+
+        // Europa Central, Norte y Bálticos
+        "DA", "DB", "DC", "DD", "DE", "DF", "DG", "DH", "DI", "DJ", "DK", "DL", "DM", "DN", "DO", "DP", "DR", // Alemania
+        "OE", // Austria
+        "LA", "LB", "LC", "LD", "LE", "LF", "LG", "LH", // Noruega
+        "SM", "SA", "SB", "SC", "SD", "SE", "SF", "7S", "8S", // Suecia
+        "OH", "OF", "OG", "OI", // Finlandia
+        "OZ", "OU", "OV", // Dinamarca
+
+        // Europa del Este y Asia Central (Aquí se incluye el bloque solicitado)
+        "UR", "US", "UT", "UU", "UV", "UW", "UX", "UY", "UZ", "EM", "EN", "EO", // Ucrania (¡Arreglado!)
+        "UA", "RA", "RB", "RC", "RD", "RE", "RF", "RG", "RN", "RU", "RV", "RW", "RX", "RY", "RZ", // Rusia
+        "SP", "SN", "SO", "SQ", "3Z", // Polonia
+        "OK", "OL", // República Checa
+        "OM", // Eslovaquia
+        "HA", "HG", // Hungría
+        "YO", "YR", // Rumanía
+        "LZ", // Bulgaria
+        "YL", // Letonia
+        "ES", // Estonia
+        "LY", // Lituania
+        "EW", // Bielorrusia
+        "UN", "UO", "UP", "UQ", // Kazajistán
+
+        // Balcanes
+        "9A", // Croacia
+        "S5", // Eslovenia
+        "E7", // Bosnia y Herzegovina
+        "YU", "YT", // Serbia
+        "Z3", // Macedonia
+
+        // Angloamérica y Pacífico
+        "W", "K", "N", "AA", "AB", "AC", "AD", "AE", "AF", "AG", "AI", "AJ", "AK", "AL", // EE.UU.
+        "VE", "VA", "VO", "VY", // Canadá
+        "G", "M", "2A", "2B", "2E", "2I", "2M", "2U", "2W", // Reino Unido
+        "VK", "AX", // Australia
+        "ZL", "ZM", // Nueva Zelanda
+        "JA", "JB", "JC", "JD", "JE", "JF", "JG", "JH", "JI", "JJ", "JK", "JL", "JM", "JN", "JO", "JP", "JQ", "JR", "JS", // Japón
+
+        // América Latina
+        "PY", "PP", "PR", "PS", "PT", "PU", "PV", "PW", "PX", // Brasil
+        "LU", "LO", "LP", "LQ", "LR", "LS", "LT", "LV", "LW", // Argentina
+        "CE", "XQ", "XR", // Chile
+        "HK", "HJ", // Colombia
+        "YV", "YW", "YX", "YY", // Venezuela
+        "XE", "XA", "XB", "XC", // México
+        "OA", "OB", "OC", // Perú
+        "HP", // Panamá
+        "TI", // Costa Rica
+        "CX", // Uruguay
+        "ZP"  // Paraguay
+    };
+
+    // Validación si el bloque entero coincide en la tabla
+    if (TABLA_PREFIJOS_UIT.find(prefijoPuro) != TABLA_PREFIJOS_UIT.end()) {
+        return true;
+    }
+
+    // Validación especial para prefijos de una sola letra 
+    if (prefijoPuro.length() == 2) {
+        std::string primeraLetra = prefijoPuro.substr(0, 1);
+        if (TABLA_PREFIJOS_UIT.find(primeraLetra) != TABLA_PREFIJOS_UIT.end()) {
+            return true;
+        }
+    }
+
+    return false; 
 }
 
 void CallsignParser::reset() {

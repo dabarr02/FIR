@@ -43,7 +43,7 @@ QRZClient qrz;
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-
+bool validarIndicativoSintactico(const std::string& callsign, std::string& prefix, std::string& suffix);
 //Comprueba si el texto obtenido tiene alucionaciones mas observadas durantes las pruebas. (Sobre todo salen en silencios)
 bool esAlucinacion(std::string texto) {
     // Convertimos a minúsculas para comparar fácil
@@ -93,7 +93,7 @@ void loadPersistentSettings() {
     globalState.qrzUser = u ? u : "";
     globalState.qrzPass = p ? p : "";
     globalState.myCallsign = c ? c : "";
-    globalState.needsConfig = (globalState.qrzUser.empty() || globalState.qrzPass.empty());
+
 
     std::cout << "[DEBUG] .env cargado -> USER: " << (u ? std::string(u) : "VACIO") 
               << ", PASS: " << (p ? "***" : "VACIO") 
@@ -140,17 +140,25 @@ int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance)
     loadEnv(".env");
     loadPersistentSettings();
 
-    if (!globalState.needsConfig) {
+    {
+        std::lock_guard<std::mutex> lock(globalState.mtx);
+        globalState.needsConfig = globalState.myCallsign.empty();
+    }
+
+    if (!globalState.needsConfig && !globalState.qrzUser.empty() && !globalState.qrzPass.empty()) {
         qrz_instance.init(globalState.qrzUser, globalState.qrzPass);
         if (qrz_instance.login()) {
-            std::cout << "[+] QRZ Conectado." << std::endl;
+            std::cout << "[+] QRZ Conectado y listo para enriquecer datos." << std::endl;
+          
         }
         else {
-            std::cout << "[!] Credenciales guardadas invalidas. Esperando configuracion web..." << std::endl;
-            std::lock_guard<std::mutex> lock(globalState.mtx);
-            globalState.needsConfig = true;
+            std::cout << "[!] Credenciales de QRZ no validas. Operando en modo local asistido..." << std::endl;
         }
     }
+    else {
+        std::cout << "[*] Modo local activo de forma predeterminada (Sin datos de QRZ)." << std::endl;
+    }
+
     if (!tts.init()) {
         std::cout << "[!] Error inicializando motor de voz." << std::endl;
         return 1;
@@ -247,6 +255,17 @@ int main() {
         for (const auto& callsign : candidates) {
             if (sessionHistory.find(callsign) == sessionHistory.end()) {
                 OperatorData op = qrz.lookup(callsign);
+                if (!op.found) {
+                    std::string prefix, suffix;
+                    if (validarIndicativoSintactico(callsign, prefix, suffix)) {
+                        op.callsign = callsign;
+                        op.name = "Operador Local";
+                        op.city = "Desconocida";
+                        op.country = "Prefijo " + prefix;
+                        op.qrz_valid = false;
+                        op.found = true; 
+                    }
+                }
                 if (op.found) {
                     setColor(10);
                     std::cout << ">>> CONTACTO: " << op.callsign << " (" << op.name << ")" << std::endl;
@@ -258,11 +277,15 @@ int main() {
                             {"call", op.callsign}, 
                             {"name", op.name}, 
                             {"loc", op.city + ", " + op.country},
+							{"band", globalState.currentBand},
+							{"qrz_valid", op.qrz_valid},
+							{"mode", globalState.currentMode},
                             { "date", getADIFDate() }, 
 							{"time", getADIFTime()}
                             });
                     }
                 }
+                
             }
         }
     }

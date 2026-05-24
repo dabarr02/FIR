@@ -14,6 +14,8 @@
 using namespace std::placeholders;
 
 
+bool validarIndicativoSintactico(const std::string& callsign, std::string& prefix, std::string& suffix);
+
 WebHandlers::WebHandlers(RadioState& state, TTSManager& tts, QRZClient& qrz)
     : state_(state), tts_(tts), qrz_(qrz) {}
 
@@ -60,15 +62,16 @@ void WebHandlers::handle_report(const httplib::Request& /*req*/, httplib::Respon
 
     for (const auto& c : state_.validatedContacts) {
         std::string call = c["call"], name = c["name"], loc = c["loc"];
-        std::string date = c["date"], time = c["time"];
+		std::string date = c["date"], time = c["time"], band = c["band"], mode = c["mode"];
+     
 
         adif << "<CALL:" << call.length() << ">" << call
             << " <QSO_DATE:" << date.length() << ">" << date
             << " <TIME_ON:" << time.length() << ">" << time
             << " <NAME:" << name.length() << ">" << name
             << " <QTH:" << loc.length() << ">" << loc
-            << " <BAND:" << state_.currentBand.length() << ">" << state_.currentBand
-            << " <MODE:2>FM <EOR>\n";
+            << " <BAND:" << band.length() << ">" << band
+            << " <MODE:" << mode.length() << ">" << mode << " <EOR>\n";
     }
 }
 res.set_content(adif.str(), "text/plain");
@@ -96,6 +99,7 @@ void WebHandlers::handle_get_settings(const httplib::Request& /*req*/, httplib::
         j["pass"] = state_.qrzPass;
         j["myCall"] = state_.myCallsign;
         j["band"] = state_.currentBand;
+        j["mode"] = state_.currentMode;
         j["needsConfig"] = state_.needsConfig;
     }
     res.set_content(j.dump(), "application/json");
@@ -104,34 +108,36 @@ void WebHandlers::handle_get_settings(const httplib::Request& /*req*/, httplib::
 void WebHandlers::handle_post_settings(const httplib::Request& req, httplib::Response& res) {
     try {
         auto j = nlohmann::json::parse(req.body);
-        std::string u = j.at("user"), p = j.at("pass"), c = j.at("myCall"), b = j.at("band");
+        std::string u = j.at("user"), p = j.at("pass"), c = j.at("myCall"), b = j.at("band"), m = j.at("mode");
 
         if (j.contains("deviceId")) {
-            int devId = j.at("deviceId").get<int>();
-            tts_.setOutputDevice(devId);
-            std::cout << "[SYSTEM] Salida de audio cambiada al dispositivo ID: " << devId << std::endl;
+            tts_.setOutputDevice(j.at("deviceId").get<int>());
         }
 
-        qrz_.init(u, p);
-        if (qrz_.login()) {
-            {
-                std::lock_guard<std::mutex> lock_save(state_.mtx);
-                state_.qrzUser = u;
-                state_.qrzPass = p;
-                state_.myCallsign = c;
-                state_.currentBand = b;
-                state_.needsConfig = false;
-            }
-            updateEnvFile(u, p, c);
-            res.set_content("{\"status\":\"ok\"}", "application/json");
-        } else {
-            res.status = 401;
-            res.set_content("{\"error\":\"QRZ Login failed\"}", "application/json");
+        bool loginSuccess = false;
+        if (!u.empty() && !p.empty()) {
+            qrz_.init(u, p);
+            loginSuccess = qrz_.login();
         }
-    } catch (...) {
-        res.status = 400;
+
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            state_.qrzUser = u;
+            state_.qrzPass = p;
+            state_.myCallsign = c;
+            state_.currentBand = b;
+            state_.currentMode = m; 
+
+            
+            state_.needsConfig = c.empty();
+        }
+        updateEnvFile(u, p, c);
+
+        nlohmann::json r;
+        r["status"] = "ok";
+        res.set_content(r.dump(), "application/json");
     }
-
+    catch (...) { res.status = 400; }
 }
 
 void WebHandlers::handle_toggle(const httplib::Request& /*req*/, httplib::Response& res) {
@@ -186,24 +192,41 @@ void WebHandlers::handle_lookup(const httplib::Request& req, httplib::Response& 
         auto j = nlohmann::json::parse(req.body);
         std::string call = j.at("call").get<std::string>();
 
+        
         OperatorData op = qrz_.lookup(call);
+
+        
+        if (!op.found) {
+            std::string prefix, suffix;
+            if (validarIndicativoSintactico(call, prefix, suffix)) {
+                op.callsign = call;
+                op.name = "Operador Local";
+                op.city = "Desconocida";
+                op.country = "Prefijo " + prefix;
+                op.qrz_valid = false;
+                op.found = true;
+            }
+        }
 
         if (op.found) {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.validatedContacts.push_back({
                 {"call", op.callsign},
                 {"name", op.name},
-                {"loc", op.city + ", " + op.country},
+                {"loc", op.qrz_valid ? (op.city + ", " + op.country) : "Validacion Local (UIT)"},
+                {"band", state_.currentBand},
+                {"mode", state_.currentMode}, 
+                {"qrz_valid", op.qrz_valid},
                 {"date", getADIFDate()},
                 {"time", getADIFTime()}
-            });
+                });
             res.set_content("{\"status\":\"ok\"}", "application/json");
-        } else {
-            res.status = 404;
         }
-    } catch (...) {
-        res.status = 400;
+        else {
+            res.status = 404; 
+        }
     }
+    catch (...) { res.status = 400; }
 }
 
 void WebHandlers::start_server_detached(unsigned short port) {

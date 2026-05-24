@@ -10,11 +10,12 @@ struct RadioState {
     std::vector<nlohmann::json> validatedContacts;
     bool isProcessing = false;
     bool running = true;
-    bool needsConfig = true;
+	bool needsConfig = true;
     std::mutex mtx;
 
     std::string qrzUser;
     std::string qrzPass;
     std::string myCallsign;
     std::string currentBand = "2M";
+    std::string currentMode = "SSB";
 };

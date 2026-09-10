@@ -82,9 +82,18 @@ El script crea ambos archivos en `dist/`:
 El script no crea paquetes incompletos: requiere el ejecutable, las DLL, Nginx,
 el modelo, la licencia y los avisos de terceros.
 
-Los paquetes CPU se generan por defecto para funcionar en equipos Windows con
-graficas AMD, Intel o NVIDIA. El portable CPU no incluye `ggml-cuda.dll` ni
-requiere CUDA. Sus archivos terminan en `-cpu`.
+Los paquetes CPU usan la distribucion oficial de Whisper/ggml compilada sin
+CUDA para funcionar en equipos Windows con graficas AMD, Intel o NVIDIA. El
+empaquetador recibe esa carpeta mediante `-CpuBinDir`, no incluye
+`ggml-cuda.dll` y comprueba que `ggml.dll` no importe CUDA. Sus archivos
+terminan en `-cpu`.
+
+Por ejemplo, con la distribucion descargada en `Downloads`:
+
+```powershell
+.\scripts\package-release.ps1 -Version v0.1.6 `
+	-CpuBinDir "C:\Users\skate\Downloads\whisper-bin-x64\Release"
+```
 
 Tambien se puede publicar una variante CUDA para equipos NVIDIA. Esta variante
 ofrece mejor rendimiento, pero debe incluir `cublas64_13.dll`,
@@ -93,7 +102,7 @@ si alguna falta:
 
 ```powershell
 .\scripts\package-release.ps1 -Version v0.1.5 -IncludeCuda `
-	-CudaBinDir "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin"
+	-CudaBinDir "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin\x64"
 ```
 
 Los archivos CUDA terminan en `-cuda` y no deben recomendarse para equipos AMD

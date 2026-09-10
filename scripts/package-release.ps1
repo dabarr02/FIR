@@ -4,7 +4,8 @@ param(
     [string]$ModelPath = "models\ggml-small.bin",
     [string]$InnoSetupPath = "",
     [switch]$IncludeCuda,
-    [string]$CudaBinDir = ""
+    [string]$CudaBinDir = "",
+    [string]$CpuBinDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,10 +32,42 @@ foreach ($requiredPath in @(
 }
 
 $runtimeDlls = @(Get-ChildItem $buildPath -Filter "*.dll" -File | Where-Object {
-    $IncludeCuda -or $_.Name -ne "ggml-cuda.dll"
+    $IncludeCuda -or $_.Name -notmatch "^(ggml.*|whisper\.dll)$"
 })
 if ($runtimeDlls.Count -eq 0) {
     throw "No runtime DLLs were found in: $buildPath"
+}
+
+if (-not $IncludeCuda) {
+    if (-not $CpuBinDir -or -not (Test-Path $CpuBinDir)) {
+        throw "CPU packaging requires -CpuBinDir pointing to the CPU whisper.cpp Release folder."
+    }
+    foreach ($cpuRequiredName in @("ggml-base.dll", "ggml.dll", "ggml-cpu-x64.dll", "whisper.dll")) {
+        if (-not (Test-Path (Join-Path $CpuBinDir $cpuRequiredName))) {
+            throw "CPU package is incomplete; missing $(Join-Path $CpuBinDir $cpuRequiredName)"
+        }
+    }
+    $cpuDependencies = @(
+        (Get-Item (Join-Path $CpuBinDir "ggml-base.dll")),
+        (Get-Item (Join-Path $CpuBinDir "ggml.dll")),
+        (Get-Item (Join-Path $CpuBinDir "whisper.dll"))
+    ) + @(Get-ChildItem $CpuBinDir -Filter "ggml-cpu-*.dll" -File)
+    $runtimeDlls += $cpuDependencies
+}
+
+$dumpbinCandidates = @(
+    "${env:VSINSTALLDIR}VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\dumpbin.exe",
+    "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\dumpbin.exe"
+)
+$dumpbin = $dumpbinCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $IncludeCuda) {
+    if (-not $dumpbin) {
+        throw "Visual Studio dumpbin.exe is required to validate the CPU DLL dependencies."
+    }
+    $ggmlDependencies = & $dumpbin /DEPENDENTS (Join-Path $CpuBinDir "ggml.dll") 2>$null
+    if ($ggmlDependencies -match "ggml-cuda\.dll") {
+        throw "The CPU package cannot be created: the selected ggml.dll imports ggml-cuda.dll."
+    }
 }
 
 if ($IncludeCuda) {

@@ -9,6 +9,9 @@ build_backup/
 *.dll
 *.lib
 *.pdb
+*.ilk
+*.iobj
+*.ipdb
 
 # IDEs
 .vscode/
@@ -25,3 +28,9 @@ models/
 *.wav
 
 .env
+
+# Runtime data and local packages
+tools/nginx/logs/*.log
+tools/nginx/logs/*.pid
+*.zip
+*.7z

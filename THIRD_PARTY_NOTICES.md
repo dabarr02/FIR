@@ -1,6 +1,6 @@
 # Third-party notices
 
-RadioAccessTFG uses or bundles interfaces and binaries from the following
+FIR uses or bundles interfaces and binaries from the following
 projects. These components are not covered by the project license above.
 
 | Component | License | Official source |

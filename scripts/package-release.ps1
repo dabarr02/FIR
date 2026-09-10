@@ -14,7 +14,7 @@ $stagePath = Join-Path $distPath "FIR-$Version"
 $installerScript = Join-Path $repoRoot "installer\FIR.iss"
 
 foreach ($requiredPath in @(
-    (Join-Path $buildPath "RadioAccessTFG.exe"),
+    (Join-Path $buildPath "FIR.exe"),
     (Join-Path $repoRoot "web"),
     (Join-Path $repoRoot "tools\nginx\nginx.exe"),
     (Join-Path $repoRoot "LICENSE"),
@@ -36,7 +36,7 @@ Remove-Item $stagePath -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $stagePath -ItemType Directory -Force | Out-Null
 New-Item (Join-Path $stagePath "models") -ItemType Directory -Force | Out-Null
 
-Copy-Item (Join-Path $buildPath "RadioAccessTFG.exe") $stagePath
+Copy-Item (Join-Path $buildPath "FIR.exe") $stagePath
 $runtimeDlls | Copy-Item -Destination $stagePath
 Copy-Item $modelFile (Join-Path $stagePath "models\ggml-small.bin")
 Copy-Item (Join-Path $repoRoot "web") $stagePath -Recurse

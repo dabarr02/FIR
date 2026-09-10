@@ -1,4 +1,4 @@
-# RadioAccessTFG
+# FIR
 
 Aplicacion de acceso por radio con transcripcion local, consulta de indicativos,
 texto a voz y una interfaz web local.
@@ -51,17 +51,14 @@ Actualmente una persona que clone el repositorio debe completar estos pasos:
 
 ```powershell
 Set-Location build\Release
-.\RadioAccessTFG.exe
+.\FIR.exe
 ```
 
 El programa localiza el modelo y Nginx junto al ejecutable, inicia el servidor
-interno y abre `http://localhost` en el navegador. El archivo `.env` es
-opcional: la interfaz permite guardar el
-indicativo local y, si se desea, las credenciales de QRZ. No se deben subir
-El paquete incluye un `.env` inicial con los campos vacios. La interfaz permite
-guardar el indicativo local y, si se desea, las credenciales de QRZ. En el
-repositorio solo se mantiene [.env.example](.env.example); nunca se deben subir
-credenciales reales.
+interno y abre `http://localhost` en el navegador. El paquete incluye un `.env`
+inicial con los campos vacios. La interfaz permite guardar el indicativo local
+y, si se desea, las credenciales de QRZ. En el repositorio solo se mantiene
+[.env.example](.env.example); nunca se deben subir credenciales reales.
 
 Por tanto, la release actual es para desarrolladores. Para ofrecer una descarga
 lista para usar habrá que crear un paquete Windows que incluya solo binarios
@@ -87,7 +84,7 @@ el modelo, la licencia y los avisos de terceros.
 
 ## Licencia
 
-El codigo original de RadioAccessTFG se distribuye bajo la licencia MIT. Las
+El codigo original de FIR se distribuye bajo la licencia MIT. Las
 dependencias externas mantienen sus propias licencias y avisos; ver
 `THIRD_PARTY_NOTICES.md`.
 

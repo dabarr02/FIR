@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(RadioAccessTFG C CXX)
+project(FIR C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,7 +19,7 @@ include_directories(third_party/portaudio/include)
 include_directories(third_party/whisper/include)
 
 # 3. EJECUTABLE
-add_executable(RadioAccessTFG 
+add_executable(FIR 
     src/main.cpp
     src/AudioEngine.cpp
     src/Transcriber.cpp
@@ -57,7 +57,7 @@ if(EXISTS "${WHISPER_BIN_DIR}/ggml-cuda.dll")
     list(APPEND RUNTIME_DLLS "${WHISPER_BIN_DIR}/ggml-cuda.dll")
 endif()
 
-target_link_libraries(RadioAccessTFG PRIVATE 
+target_link_libraries(FIR PRIVATE 
     CURL::libcurl        
     pugixml::pugixml
     nlohmann_json::nlohmann_json
@@ -68,7 +68,7 @@ target_link_libraries(RadioAccessTFG PRIVATE
 )
 
 # 5. AUTO-COPIAR DLLs (La magia para que funcione al darle a Play)
-add_custom_command(TARGET RadioAccessTFG POST_BUILD
+add_custom_command(TARGET FIR POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     ${RUNTIME_DLLS}
-    $<TARGET_FILE_DIR:RadioAccessTFG>)
+    $<TARGET_FILE_DIR:FIR>)

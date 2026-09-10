@@ -34,3 +34,4 @@ tools/nginx/logs/*.log
 tools/nginx/logs/*.pid
 *.zip
 *.7z
+dist/

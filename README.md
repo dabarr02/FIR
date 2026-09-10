@@ -36,6 +36,55 @@ cmake --build build --config Release
 El proyecto falla de forma intencionada si faltan los binarios de Whisper/ggml o
 PortAudio. Consulta `THIRD_PARTY_NOTICES.md` antes de redistribuirlos.
 
+## Ejecucion desde un clon
+
+Actualmente una persona que clone el repositorio debe completar estos pasos:
+
+1. Obtener los binarios x64 de Whisper/ggml y PortAudio desde sus fuentes
+	oficiales y colocarlos en las rutas esperadas bajo `third_party/`.
+2. Descargar el modelo compatible y guardarlo como
+	`build/Release/models/ggml-small.bin`. El modelo no se incluye en GitHub.
+3. Configurar y compilar el proyecto siguiendo la seccion anterior.
+4. Comprobar que los puertos 80 y 8080 estan libres y que hay un microfono
+	disponible en Windows.
+5. Ejecutar el programa desde la carpeta de salida:
+
+```powershell
+Set-Location build\Release
+.\RadioAccessTFG.exe
+```
+
+El programa localiza el modelo y Nginx junto al ejecutable, inicia el servidor
+interno y abre `http://localhost` en el navegador. El archivo `.env` es
+opcional: la interfaz permite guardar el
+indicativo local y, si se desea, las credenciales de QRZ. No se deben subir
+El paquete incluye un `.env` inicial con los campos vacios. La interfaz permite
+guardar el indicativo local y, si se desea, las credenciales de QRZ. En el
+repositorio solo se mantiene [.env.example](.env.example); nunca se deben subir
+credenciales reales.
+
+Por tanto, la release actual es para desarrolladores. Para ofrecer una descarga
+lista para usar habrá que crear un paquete Windows que incluya solo binarios
+externos con versiones y licencias verificadas, además del modelo distribuido
+segun sus condiciones.
+
+## Crear paquetes Windows
+
+Despues de compilar en Release y verificar las licencias de los binarios, instala
+Inno Setup 6 y ejecuta desde la raiz del repositorio:
+
+```powershell
+.\scripts\package-release.ps1 -Version v0.1.0
+```
+
+El script crea ambos archivos en `dist/`:
+
+- `FIR-v0.1.0-portable.zip`: se descomprime y se ejecuta directamente.
+- `FIR-v0.1.0-setup.exe`: instala FIR con accesos directos.
+
+El script no crea paquetes incompletos: requiere el ejecutable, las DLL, Nginx,
+el modelo, la licencia y los avisos de terceros.
+
 ## Licencia
 
 El codigo original de RadioAccessTFG se distribuye bajo la licencia MIT. Las

@@ -14,6 +14,7 @@
 #include <map>
 #include <set>
 #include <mutex>
+#include <filesystem>
 #include <shellapi.h>
 
 #pragma warning(push, 0) 
@@ -39,6 +40,13 @@ const int MAX_CONTEXTO = 500;
 TTSManager tts;
 RadioState globalState;
 QRZClient qrz; 
+
+std::filesystem::path applicationDirectory() {
+    char executablePath[MAX_PATH];
+    DWORD length = GetModuleFileNameA(nullptr, executablePath, MAX_PATH);
+    if (length == 0 || length == MAX_PATH) return std::filesystem::current_path();
+    return std::filesystem::path(executablePath).parent_path();
+}
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -135,9 +143,10 @@ std::string getADIFTime() {
 
 //Inicializacion del sistema 
 int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance) {
-    if (!trans.init("models/ggml-small.bin")) return 1;
+    const auto modelPath = applicationDirectory() / "models" / "ggml-small.bin";
+    if (!trans.init(modelPath.string())) return 1;
     if (!audio.start()) return 1;
-    loadEnv(".env");
+    loadEnv((applicationDirectory() / ".env").string());
     loadPersistentSettings();
 
     {
@@ -172,8 +181,9 @@ void startFrontend() {
     
     system("taskkill /f /im nginx.exe >nul 2>&1");
 
-    std::string nginxExePath = "..\\..\\tools\\nginx\\nginx.exe";
-    std::string nginxDirArgs = "-p ..\\..\\tools\\nginx";
+    const auto nginxRoot = applicationDirectory() / "tools" / "nginx";
+    const std::string nginxExePath = (nginxRoot / "nginx.exe").string();
+    const std::string nginxDirArgs = "-p \"" + nginxRoot.string() + "\"";
 
     
     HINSTANCE hInst = ShellExecuteA(NULL, "open", nginxExePath.c_str(), nginxDirArgs.c_str(), NULL, SW_HIDE);

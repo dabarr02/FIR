@@ -44,6 +44,10 @@ New-Item (Join-Path $stagePath "tools") -ItemType Directory -Force | Out-Null
 Copy-Item (Join-Path $repoRoot "tools\nginx") (Join-Path $stagePath "tools") -Recurse
 Remove-Item (Join-Path $stagePath "tools\nginx\logs") -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $stagePath "tools\nginx\temp") -Recurse -Force -ErrorAction SilentlyContinue
+New-Item (Join-Path $stagePath "tools\nginx\logs") -ItemType Directory -Force | Out-Null
+New-Item (Join-Path $stagePath "tools\nginx\temp") -ItemType Directory -Force | Out-Null
+Set-Content (Join-Path $stagePath "tools\nginx\logs\.gitkeep") "" -Encoding ascii
+Set-Content (Join-Path $stagePath "tools\nginx\temp\.gitkeep") "" -Encoding ascii
 Copy-Item (Join-Path $repoRoot "LICENSE") $stagePath
 Copy-Item (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") $stagePath
 Copy-Item (Join-Path $repoRoot "README.md") $stagePath

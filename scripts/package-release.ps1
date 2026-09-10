@@ -2,7 +2,9 @@ param(
     [string]$Version = "v0.1.0",
     [string]$BuildDir = "build\Release",
     [string]$ModelPath = "models\ggml-small.bin",
-    [string]$InnoSetupPath = ""
+    [string]$InnoSetupPath = "",
+    [switch]$IncludeCuda,
+    [string]$CudaBinDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,7 +12,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $buildPath = Join-Path $repoRoot $BuildDir
 $modelFile = Join-Path $repoRoot $ModelPath
 $distPath = Join-Path $repoRoot "dist"
-$stagePath = Join-Path $distPath "FIR-$Version"
+$variant = if ($IncludeCuda) { "cuda" } else { "cpu" }
+$stagePath = Join-Path $distPath "FIR-$Version-$variant"
 $installerScript = Join-Path $repoRoot "installer\FIR.iss"
 
 foreach ($requiredPath in @(
@@ -27,9 +30,33 @@ foreach ($requiredPath in @(
     }
 }
 
-$runtimeDlls = @(Get-ChildItem $buildPath -Filter "*.dll" -File)
+$runtimeDlls = @(Get-ChildItem $buildPath -Filter "*.dll" -File | Where-Object {
+    $IncludeCuda -or $_.Name -ne "ggml-cuda.dll"
+})
 if ($runtimeDlls.Count -eq 0) {
     throw "No runtime DLLs were found in: $buildPath"
+}
+
+if ($IncludeCuda) {
+    if (-not $CudaBinDir) {
+        $cudaCandidates = @(
+            "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin",
+            "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.1\bin",
+            "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0\bin"
+        )
+        $CudaBinDir = $cudaCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
+    if (-not $CudaBinDir) {
+        throw "CUDA was requested, but no CUDA bin directory was found. Pass -CudaBinDir explicitly."
+    }
+    $cudaRuntimeNames = @("cublas64_13.dll", "cublasLt64_13.dll", "cudart64_13.dll")
+    foreach ($cudaRuntimeName in $cudaRuntimeNames) {
+        $cudaRuntimePath = Join-Path $CudaBinDir $cudaRuntimeName
+        if (-not (Test-Path $cudaRuntimePath)) {
+            throw "CUDA package is incomplete; missing $cudaRuntimePath"
+        }
+        $runtimeDlls += Get-Item $cudaRuntimePath
+    }
 }
 
 Remove-Item $stagePath -Recurse -Force -ErrorAction SilentlyContinue
@@ -58,14 +85,14 @@ QRZ_PASS=
 MY_CALLSIGN=
 "@ | Set-Content (Join-Path $stagePath ".env") -Encoding ascii
 
-$portablePath = Join-Path $distPath "FIR-$Version-portable.zip"
+$portablePath = Join-Path $distPath "FIR-$Version-$variant-portable.zip"
 Remove-Item $portablePath -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path $stagePath -DestinationPath $portablePath -CompressionLevel Optimal
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::Open($portablePath, [System.IO.Compression.ZipArchiveMode]::Update)
 try {
-    $normalizedEnvPath = "FIR-$Version/.env"
+    $normalizedEnvPath = "FIR-$Version-$variant/.env"
     $existingEnv = $archive.Entries | Where-Object {
         ($_.FullName -replace '\\', '/') -eq $normalizedEnvPath
     } | Select-Object -First 1
@@ -104,7 +131,7 @@ if (-not $InnoSetupPath) {
     throw "Inno Setup 6 was not found. Install it or pass -InnoSetupPath to create the installer."
 }
 
-& $InnoSetupPath "/DMyAppVersion=$Version" "/DSourceDir=$stagePath" "/DOutputDir=$distPath" $installerScript
+& $InnoSetupPath "/DMyAppVersion=$Version" "/DSourceDir=$stagePath" "/DOutputDir=$distPath" "/DMyAppVariant=$variant" $installerScript
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup failed with exit code $LASTEXITCODE."
 }

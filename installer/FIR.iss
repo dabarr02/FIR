@@ -12,6 +12,10 @@
   #define OutputDir "dist"
 #endif
 
+#ifndef MyAppVariant
+  #define MyAppVariant "cpu"
+#endif
+
 [Setup]
 AppId={{B3E4F68D-8B9B-4EE2-8D8E-1E8B1A1B9A30}
 AppName={#MyAppName}
@@ -19,7 +23,7 @@ AppVersion={#MyAppVersion}
 DefaultDirName={localappdata}\FIR
 DefaultGroupName={#MyAppName}
 OutputDir={#OutputDir}
-OutputBaseFilename=FIR-{#MyAppVersion}-setup
+OutputBaseFilename=FIR-{#MyAppVersion}-{#MyAppVariant}-setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest

@@ -82,6 +82,23 @@ El script crea ambos archivos en `dist/`:
 El script no crea paquetes incompletos: requiere el ejecutable, las DLL, Nginx,
 el modelo, la licencia y los avisos de terceros.
 
+Los paquetes CPU se generan por defecto para funcionar en equipos Windows con
+graficas AMD, Intel o NVIDIA. El portable CPU no incluye `ggml-cuda.dll` ni
+requiere CUDA. Sus archivos terminan en `-cpu`.
+
+Tambien se puede publicar una variante CUDA para equipos NVIDIA. Esta variante
+ofrece mejor rendimiento, pero debe incluir `cublas64_13.dll`,
+`cublasLt64_13.dll` y `cudart64_13.dll` del mismo runtime CUDA. El script falla
+si alguna falta:
+
+```powershell
+.\scripts\package-release.ps1 -Version v0.1.5 -IncludeCuda `
+	-CudaBinDir "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin"
+```
+
+Los archivos CUDA terminan en `-cuda` y no deben recomendarse para equipos AMD
+o Intel.
+
 ## Licencia
 
 El codigo original de FIR se distribuye bajo la licencia MIT. Las

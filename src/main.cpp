@@ -143,10 +143,10 @@ std::string getADIFTime() {
 
 //Inicializacion del sistema 
 int system_init(Transcriber& trans, AudioEngine& audio, QRZClient& qrz_instance) {
+    loadEnv((applicationDirectory() / ".env").string());
     const auto modelPath = applicationDirectory() / "models" / "ggml-small.bin";
     if (!trans.init(modelPath.string())) return 1;
     if (!audio.start()) return 1;
-    loadEnv((applicationDirectory() / ".env").string());
     loadPersistentSettings();
 
     {

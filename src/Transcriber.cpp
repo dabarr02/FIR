@@ -1,11 +1,20 @@
 #include "Transcriber.hpp"
+#include "ggml-backend.h"
 #include <iostream>
+#include <cstdlib>
+#include <filesystem>
 
 Transcriber::Transcriber() {}
 Transcriber::~Transcriber() { if (ctx) whisper_free(ctx); }
 
 bool Transcriber::init(const std::string& modelPath) {
-    ctx = whisper_init_from_file(modelPath.c_str());
+    const auto backendDirectory = std::filesystem::path(modelPath).parent_path().parent_path();
+    ggml_backend_load_all_from_path(backendDirectory.string().c_str());
+
+    whisper_context_params contextParams = whisper_context_default_params();
+    const char* useGpu = std::getenv("FIR_USE_GPU");
+    contextParams.use_gpu = useGpu != nullptr && std::string(useGpu) == "1";
+    ctx = whisper_init_from_file_with_params(modelPath.c_str(), contextParams);
     return ctx != nullptr;
 }
 

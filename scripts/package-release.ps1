@@ -113,6 +113,7 @@ Copy-Item (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") $stagePath
 Copy-Item (Join-Path $repoRoot "README.md") $stagePath
 @"
 # FIR configuration
+FIR_USE_GPU=$(if ($IncludeCuda) { "1" } else { "0" })
 QRZ_USER=
 QRZ_PASS=
 MY_CALLSIGN=

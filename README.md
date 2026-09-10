@@ -56,7 +56,8 @@ Set-Location build\Release
 
 El programa localiza el modelo y Nginx junto al ejecutable, inicia el servidor
 interno y abre `http://localhost` en el navegador. El paquete incluye un `.env`
-inicial con los campos vacios. La interfaz permite guardar el indicativo local
+inicial con los campos vacios. En la variante CPU, `FIR_USE_GPU=0`; en la
+variante CUDA, `FIR_USE_GPU=1`. La interfaz permite guardar el indicativo local
 y, si se desea, las credenciales de QRZ. En el repositorio solo se mantiene
 [.env.example](.env.example); nunca se deben subir credenciales reales.
 

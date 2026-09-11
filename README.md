@@ -1,5 +1,7 @@
 # FIR
 
+[English version](README.en.md)
+
 Aplicacion de acceso por radio con transcripcion local, consulta de indicativos,
 texto a voz y una interfaz web local.
 
@@ -114,6 +116,13 @@ o Intel.
 El codigo original de FIR se distribuye bajo la licencia MIT. Las
 dependencias externas mantienen sus propias licencias y avisos; ver
 `THIRD_PARTY_NOTICES.md`.
+
+## Manual de usuario
+
+- [Manual de usuario en español](docs/manual/manual-es.md)
+- [User manual in English](docs/manual/manual-en.md)
+
+Las imágenes del manual deben colocarse en [docs/manual/images](docs/manual/images).
 
 ## Releases
 

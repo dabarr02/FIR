@@ -4,6 +4,8 @@
 
 FIR is an amateur radio assistant with local speech-to-text transcription, callsign parsing, optional QRZ integration, text-to-speech, and a local web interface.
 
+This project was developed as part of an undergraduate thesis (TFG).
+
 ## Repository status
 
 This repository contains the source code and required headers. Generated binaries, AI models, and third-party DLL/LIB files are not part of the source repository.

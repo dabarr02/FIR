@@ -5,6 +5,8 @@
 Aplicacion de acceso por radio con transcripcion local, consulta de indicativos,
 texto a voz y una interfaz web local.
 
+Este desarrollo se ha realizado como parte de un Trabajo de Fin de Grado (TFG).
+
 ## Estado del repositorio
 
 Este repositorio contiene el codigo fuente y los headers necesarios para estudiar

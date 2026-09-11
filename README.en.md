@@ -58,7 +58,7 @@ See `scripts/package-release.ps1` for packaging commands. Inno Setup 6 is requir
 - [User manual in English](docs/manual/manual-en.md)
 - [Manual de usuario en español](docs/manual/manual-es.md)
 
-Place manual images in [docs/manual/images](docs/manual/images).
+
 
 ## License
 

@@ -124,8 +124,6 @@ dependencias externas mantienen sus propias licencias y avisos; ver
 - [Manual de usuario en español](docs/manual/manual-es.md)
 - [User manual in English](docs/manual/manual-en.md)
 
-Las imágenes del manual deben colocarse en [docs/manual/images](docs/manual/images).
-
 ## Releases
 
 Las releases de GitHub se generan al publicar un tag `v*.*.*`. La automatizacion

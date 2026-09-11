@@ -53,6 +53,11 @@ The release process creates CPU and CUDA variants:
 
 See `scripts/package-release.ps1` for packaging commands. Inno Setup 6 is required to create the installer.
 
+The release process can also create a Vulkan variant for AMD, Intel, or NVIDIA
+GPUs with working Vulkan drivers. It requires a whisper.cpp build configured
+with `GGML_VULKAN=ON`. Vulkan artifacts use the `-vulkan` suffix. The Vulkan
+driver normally provides `vulkan-1.dll`.
+
 ## User manual
 
 - [User manual in English](docs/manual/manual-en.md)

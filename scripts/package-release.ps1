@@ -5,7 +5,9 @@ param(
     [string]$InnoSetupPath = "",
     [switch]$IncludeCuda,
     [string]$CudaBinDir = "",
-    [string]$CpuBinDir = ""
+    [string]$CpuBinDir = "",
+    [switch]$IncludeVulkan,
+    [string]$VulkanBinDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,9 +15,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $buildPath = Join-Path $repoRoot $BuildDir
 $modelFile = Join-Path $repoRoot $ModelPath
 $distPath = Join-Path $repoRoot "dist"
-$variant = if ($IncludeCuda) { "cuda" } else { "cpu" }
+$variant = if ($IncludeCuda) { "cuda" } elseif ($IncludeVulkan) { "vulkan" } else { "cpu" }
 $stagePath = Join-Path $distPath "FIR-$Version-$variant"
 $installerScript = Join-Path $repoRoot "installer\FIR.iss"
+
+if ($IncludeCuda -and $IncludeVulkan) {
+    throw "Choose only one accelerated backend: CUDA or Vulkan."
+}
 
 foreach ($requiredPath in @(
     (Join-Path $buildPath "FIR.exe"),
@@ -32,13 +38,13 @@ foreach ($requiredPath in @(
 }
 
 $runtimeDlls = @(Get-ChildItem $buildPath -Filter "*.dll" -File | Where-Object {
-    $IncludeCuda -or $_.Name -notmatch "^(ggml.*|whisper\.dll)$"
+    $_.Name -notmatch "^(ggml.*|whisper\.dll)$"
 })
 if ($runtimeDlls.Count -eq 0) {
     throw "No runtime DLLs were found in: $buildPath"
 }
 
-if (-not $IncludeCuda) {
+if (-not $IncludeCuda -and -not $IncludeVulkan) {
     if (-not $CpuBinDir -or -not (Test-Path $CpuBinDir)) {
         throw "CPU packaging requires -CpuBinDir pointing to the CPU whisper.cpp Release folder."
     }
@@ -55,12 +61,30 @@ if (-not $IncludeCuda) {
     $runtimeDlls += $cpuDependencies
 }
 
+if ($IncludeVulkan) {
+    if (-not $VulkanBinDir -or -not (Test-Path $VulkanBinDir)) {
+        throw "Vulkan packaging requires -VulkanBinDir pointing to a Vulkan whisper.cpp Release folder."
+    }
+    foreach ($vulkanRequiredName in @("ggml-base.dll", "ggml.dll", "ggml-cpu.dll", "ggml-vulkan.dll", "whisper.dll")) {
+        if (-not (Test-Path (Join-Path $VulkanBinDir $vulkanRequiredName))) {
+            throw "Vulkan package is incomplete; missing $(Join-Path $VulkanBinDir $vulkanRequiredName)"
+        }
+    }
+    $runtimeDlls += @(
+        (Get-Item (Join-Path $VulkanBinDir "ggml-base.dll")),
+        (Get-Item (Join-Path $VulkanBinDir "ggml.dll")),
+        (Get-Item (Join-Path $VulkanBinDir "ggml-cpu.dll")),
+        (Get-Item (Join-Path $VulkanBinDir "ggml-vulkan.dll")),
+        (Get-Item (Join-Path $VulkanBinDir "whisper.dll"))
+    )
+}
+
 $dumpbinCandidates = @(
     "${env:VSINSTALLDIR}VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\dumpbin.exe",
     "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\dumpbin.exe"
 )
 $dumpbin = $dumpbinCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $IncludeCuda) {
+if (-not $IncludeCuda -and -not $IncludeVulkan) {
     if (-not $dumpbin) {
         throw "Visual Studio dumpbin.exe is required to validate the CPU DLL dependencies."
     }
@@ -113,7 +137,7 @@ Copy-Item (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") $stagePath
 Copy-Item (Join-Path $repoRoot "README.md") $stagePath
 @"
 # FIR configuration
-FIR_USE_GPU=$(if ($IncludeCuda) { "1" } else { "0" })
+FIR_USE_GPU=$(if ($IncludeCuda -or $IncludeVulkan) { "1" } else { "0" })
 QRZ_USER=
 QRZ_PASS=
 MY_CALLSIGN=

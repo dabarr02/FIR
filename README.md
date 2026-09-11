@@ -113,6 +113,18 @@ si alguna falta:
 Los archivos CUDA terminan en `-cuda` y no deben recomendarse para equipos AMD
 o Intel.
 
+Tambien se puede generar una variante Vulkan para GPUs AMD, Intel o NVIDIA con
+drivers Vulkan. Requiere una build de whisper.cpp compilada con
+`GGML_VULKAN=ON`:
+
+```powershell
+.\scripts\package-release.ps1 -Version v0.1.7 -IncludeVulkan `
+	-VulkanBinDir "C:\ruta\a\whisper-vulkan\bin\Release"
+```
+
+Los archivos Vulkan terminan en `-vulkan`. El equipo debe tener un driver
+Vulkan funcional; `vulkan-1.dll` normalmente lo proporciona el propio driver.
+
 ## Licencia
 
 El codigo original de FIR se distribuye bajo la licencia MIT. Las
